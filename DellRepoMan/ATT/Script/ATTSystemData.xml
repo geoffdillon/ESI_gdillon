@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ATTSystemData.xml
+	Geoff Dillon 20190117
+
+	Use this XML file to encode the system platform information to support building custom catalogs for the AT&T platforms.
+	The details associated with each <System> will be used to build the <SoftwareBundle> schema in the BaseCatalog XML file.
+	
+	In addition to this file, the DUP Packages listed under <Contents> for each <System> must be located in a common folder structure.
+	for instance:
+	c:\work\ATT_Updates\
+		DSS9500M\
+		DSS9600\
+		DCS1610\
+	
+	Given the DUPSearchPath at the command line (C:\work\ATT_Updates in this example), the script will search the subfolders to 
+	find each DUP package by name as listed in the Contents. It will extract the Package.XML file from each DUP package and will 
+	collect additional details to fill in the <SoftwareComponent> schema for the package.
+-->
+<BaseCatalogs>
+	<!-- List all of the Systems that will be supported with Linux updates for custom catalogs. 
+		  Use the Name field here to reference this System at the command line to be included in the BaseCatalog. -->
+	<System Name="DSS9500M" NickName="Metallica MLK" Agile="PHA491D" >
+		<!-- The TargetSystems node will be cloned and copied into the SoftwareBundle for this system. -->
+		<TargetSystems>
+			<Brand key="69" prefix="PEC">
+				<Display lang="en">Cloud Products</Display>
+				<Model systemID="071A" systemIDType="BIOS"><Display lang="en">DSS9500M</Display></Model>
+			</Brand>
+		</TargetSystems>
+		<!-- The TargetOSes node will be cloned and copied into the SoftwareBundle for this system. Only Linux is supported with this script at this time.-->
+		<TargetOSes>
+			<OperatingSystem osCode="LIN" osVendor="DELL">
+				<Display lang="en">Embedded Linux</Display>
+			</OperatingSystem>
+		</TargetOSes>
+		<Contents>
+			<!-- Every DUP that must be included for this platform, plus the Agile FOLDER name.  
+				You can get the FOLDER name from the AGILE record under attchments.
+				Specifically its the folder name of the .BIN file.  This folder name will be used 
+				to build a path under the local DRM store to place the package files.
+				Each package requires both the BIN and BIN.sign files to be together.  In agile 
+				however the BIN.sign file will have a different Folder name. You can forget the 
+				second folder name and only record the folder of the .BIN file. The .BIN.sign 
+				must be colocated with the .BIN file to be found under the DUPSearchPath
+			-->
+			<Package path="BIOS_DC6N5_LN_2.8.1.BIN" folder="FOLDER05135710M" />
+			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_1HY5M_LN_2.61.60.60_A00.BIN" folder="FOLDER05296857M" />
+			<Package path="CPLD_Firmware_YGG3P_LN_1.0.1_A00.BIN" folder="FOLDER03954938M" />
+			<Package path="C6320_Network_Firmware_DKGC0_LN_16.5.20_A00.BIN" folder="FOLDER02973057M" />
+			<Package path="SAS-RAID_Firmware_F675Y_LN_25.5.5.0005_A13.BIN" folder="FOLDER04905006M" />
+			<Package path="SAS-Drive_Firmware_R2N0T_LN_PS26_A00.BIN" folder="FOLDER04039900M" />
+			<Package path="Serial-ATA_Firmware_KVKY5_LN_NA07_A00.BIN" folder="FOLDER04441877M" />
+			<Package path="Serial-ATA_Firmware_GMW4P_LN_NB33_A00.BIN" folder="FOLDER04400577M" />
+			<Package path="SAS-Drive_Firmware_MJY5P_LN_DT31_A00.BIN" folder="FOLDER04142452M" />
+		</Contents>
+	</System>
+	
+	<System Name="DSS9600" NickName="Stark" Agile="PH8939H">
+		<TargetSystems>
+			<Brand key="69" prefix="PEC">
+				<Display lang="en">Cloud Products</Display>
+				<Model systemID="07C3" systemIDType="BIOS"><Display lang="en">DSS9600</Display></Model>
+			</Brand>
+		</TargetSystems>
+		<TargetOSes>
+			<OperatingSystem osCode="LIN" osVendor="Dell">
+				<Display lang="en">Embedded Linux</Display>
+			</OperatingSystem>
+		</TargetOSes>
+		<Contents>
+			<Package path="BIOS_XX64W_LN_1.5.4.BIN" folder="FOLDER05142459M" />
+			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_G29X0_LN_3.21.21.22_A00.BIN" folder="FOLDER05085810M" />
+			<Package path="Network_Firmware_T6VN9_LN_18.5.17_A00.BIN" folder="FOLDER04867043M" />
+			<Package path="SAS-Drive_Firmware_37RKK_LN_KT37_A00.BIN" folder="FOLDER04221994M" />
+			<Package path="SAS-Drive_Firmware_95C83_LN_DSF2_A00.BIN" folder="FOLDER04090824M" />
+			<Package path="SAS-Drive_Firmware_NFXW0_LN_ST31_A00.BIN" folder="FOLDER04388931M" />
+			<Package path="SAS-RAID_Firmware_F675Y_LN_25.5.5.0005_A13.BIN" folder="FOLDER04905006M" />
+			<Package path="SAS-Drive_Firmware_MG2X8_LN_EA04.BIN" folder="FOLDER04888949M" />
+		</Contents>
+	</System>
+	
+	<System Name="DCS1610" NickName="Mormont" Agile="PH2121P">
+		<TargetSystems>
+			<Brand key="3" prefix="PE">
+				<Display lang="en">PowerEdge</Display>
+				<Model systemID="086D" systemIDType="BIOS"><Display lang="en">DCS1610</Display></Model>
+			</Brand>
+		</TargetSystems>
+		<TargetOSes>
+			<OperatingSystem osCode="LIN" osVendor="DELL">
+			<Display lang="en">Embedded Linux</Display>
+		</OperatingSystem>
+		</TargetOSes>
+		<Contents>
+			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_387FW_LN_3.21.21.21_A00.BIN" folder="FOLDER05009671M" />
+			<Package path="DCS1610_BIOS_R0WM3_LN_1.4.8.BIN" folder="FOLDER04994104M" />
+			<Package path="Network_Firmware_T6VN9_LN_18.5.17_A00.BIN" folder="FOLDER04867043M" />
+			<Package path="SAS-RAID_Firmware_F675Y_LN_25.5.5.0005_A13.BIN" folder="FOLDER04905006M" />
+			<Package path="Serial-ATA_Firmware_KRP53_LN_DL58_A00.BIN" folder="FOLDER04969913M" />
+			<Package path="Serial-ATA_Firmware_M5GJ1_LN_DB34_A00.BIN" folder="FOLDER04310772M" />
+			<Package path="Serial-ATA_Firmware_RJ5D9_LN_TA23_A00.BIN" folder="FOLDER04190368M" />
+		</Contents>
+	</System>
+</BaseCatalogs>
