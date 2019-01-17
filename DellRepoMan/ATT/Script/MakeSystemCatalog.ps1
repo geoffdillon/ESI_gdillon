@@ -175,13 +175,13 @@ Class DellSystemCatalogs {
 			throw "Unable to load BaseCatalogs from $($this.XMLFileName)"
 		}
 		
-		write-verbose "Getting BaseCatalogs from $($this.XMLFileName)"
+		write-verbose "DellSystemCatalogs: Getting BaseCatalogs from $($this.XMLFileName)"
 		
 		$this.SysNodes = $this.XMLDoc.BaseCatalogs.GetElementsByTagName("System")
 		
 		$this.Systems = @()
 		foreach ($sysnode in $this.SysNodes) {
-			write-verbose "Found System named $($sysNode.Name)"
+			write-verbose "DellSystemCatalogs: Found System named $($sysNode.Name)"
 			$this.Systems += [DellSystem]::new($sysnode)
 		}
 		
@@ -304,15 +304,15 @@ Class DellSystemCatalogs {
 	
 	# extract xml from DUP and return as SoftwareComponent Element
 	[System.XML.XMLElement] GetSWCompXML([hashtable]$comp, [System.XML.XMLDocument]$xmldoc, [string]$DUPSearchPath) {
-		write-verbose "DellSystemCatalogs:  Generating SoftwareComponent XML for path $($comp.path)"
+		write-verbose "DellSystemCatalogs: GetSWCompXML: Generating SoftwareComponent XML for path $($comp.path)"
 		
 		if (-not (test-path $DUPSearchPath)) {
-			throw "DellSystemCatalogs:  Package Search Path $DUPSearchPath does not exist."
+			throw "DellSystemCatalogs: GetSWCompXML: Package Search Path $DUPSearchPath does not exist."
 		}
 		$pf = get-childitem -path $DUPSearchPath -filter $comp.path -recurse | select -first 1
 		
 		if (-not $pf) {
-			throw "DellSystemCatalogs:  Package file $($comp.path) not found under search path $DUPSearchPath."
+			throw "DellSystemCatalogs: GetSWCompXML: Package file $($comp.path) not found under search path $DUPSearchPath."
 		}
 		else {
 			$pkgxmlpath = join-path $DUPSearchPath ($pf.basename + '.xml')
