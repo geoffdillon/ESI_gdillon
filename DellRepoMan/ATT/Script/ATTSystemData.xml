@@ -35,7 +35,7 @@
 		</TargetOSes>
 		<Contents>
 			<!-- Every DUP that must be included for this platform, plus the Agile FOLDER name.  
-				You can get the FOLDER name from the AGILE record under attchments.
+				You can get the FOLDER name from the AGILE record under 'Attachments'.
 				Specifically its the folder name of the .BIN file.  This folder name will be used 
 				to build a path under the local DRM store to place the package files.
 				Each package requires both the BIN and BIN.sign files to be together.  In agile 
