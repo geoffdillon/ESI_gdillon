@@ -29,7 +29,9 @@ echo %PATH%|findstr /i /c:"%TOOLCHAIN_PATH:"=%">nul ||set PATH=%PATH%;%TOOLCHAIN
 
 set LOGFILE=%2_%BUILDCONFIG%.log
 echo Begin build, logging to %LOGFILE%
-%IDE% -nosplash --launcher.suppressErrors -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data "%1" -cleanBuild "%2/%BUILDCONFIG%" 2>&1 %LOGFILE%
+%IDE% -nosplash --launcher.suppressErrors -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data "%1" -importAll "%1" -cleanBuild "%2/%BUILDCONFIG%"
+
+%IDE% -nosplash --launcher.suppressErrors -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data "%1" -build "%2/%BUILDCONFIG%"
 
 goto:eof
 
