@@ -29,10 +29,13 @@ set IDE=%NXP_HOME%\!MCUX!\ide\mcuxpressoidec.exe
 
 echo %PATH%|findstr /i /c:"%TOOLCHAIN_PATH:"=%">nul ||set PATH=%PATH%;%TOOLCHAIN_PATH%
 
+REM Import the projects from the tree
 !IDE! -nosplash --launcher.suppressErrors -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data "%1" -importAll "%1"
 
+REM Build the clean target for the configuration
 !IDE! -nosplash --launcher.suppressErrors -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data "%1" -cleanBuild "%2/!BUILDCONFIG!" 
 
+REM Build the chosen configuration
 !IDE! -nosplash --launcher.suppressErrors -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data "%1" -build "%2/!BUILDCONFIG!"
 
 goto:eof
