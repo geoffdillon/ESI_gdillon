@@ -11,7 +11,7 @@ if "%3"=="" (
 set BUILDCONFIG=%3
 
 :begin
-echo BUILDCONFIG is %BUILDCONFIG%
+echo BUILDCONFIG is !BUILDCONFIG!
 SET NXP_HOME=c:\nxp
 if exist "%NXP_HOME%" (
 	for /F "tokens=* USEBACKQ" %%F in (`dir /AD /b %NXP_HOME%`) DO (set MCU=%%F)
@@ -22,17 +22,17 @@ if exist "%NXP_HOME%" (
 	goto:eof
 )
 
-set TOOLCHAIN_PATH=%NXP_HOME%\%MCUX%\ide\tools\bin
+set TOOLCHAIN_PATH=%NXP_HOME%\!MCUX!\ide\tools\bin
 
-set IDE=%NXP_HOME%\%MCUX%\ide\mcuxpressoidec.exe
+set IDE=%NXP_HOME%\!MCUX!\ide\mcuxpressoidec.exe
 
 echo %PATH%|findstr /i /c:"%TOOLCHAIN_PATH:"=%">nul ||set PATH=%PATH%;%TOOLCHAIN_PATH%
 
-%IDE% -nosplash --launcher.suppressErrors -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data "%1" -importAll "%1"
+!IDE! -nosplash --launcher.suppressErrors -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data "%1" -importAll "%1"
 
-%IDE% -nosplash --launcher.suppressErrors -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data "%1" -cleanBuild "%2/%BUILDCONFIG%" 
+!IDE! -nosplash --launcher.suppressErrors -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data "%1" -cleanBuild "%2/!BUILDCONFIG!" 
 
-%IDE% -nosplash --launcher.suppressErrors -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data "%1" -build "%2/%BUILDCONFIG%"
+!IDE! -nosplash --launcher.suppressErrors -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data "%1" -build "%2/!BUILDCONFIG!"
 
 goto:eof
 
