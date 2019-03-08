@@ -28,7 +28,9 @@ set IDE=%NXP_HOME%\%MCUX%\ide\mcuxpressoidec.exe
 
 echo %PATH%|findstr /i /c:"%TOOLCHAIN_PATH:"=%">nul ||set PATH=%PATH%;%TOOLCHAIN_PATH%
 
-%IDE% -nosplash --launcher.suppressErrors -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data "%1" -importAll "%1" -cleanBuild "%2/%BUILDCONFIG%"
+%IDE% -nosplash --launcher.suppressErrors -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data "%1" -importAll "%1"
+
+%IDE% -nosplash --launcher.suppressErrors -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data "%1" -cleanBuild "%2/%BUILDCONFIG%" 
 
 %IDE% -nosplash --launcher.suppressErrors -application org.eclipse.cdt.managedbuilder.core.headlessbuild -data "%1" -build "%2/%BUILDCONFIG%"
 
