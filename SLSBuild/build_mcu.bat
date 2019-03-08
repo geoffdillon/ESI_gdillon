@@ -7,8 +7,9 @@ if "%2"=="" goto usage
 if "%3"=="" (
 	set BUILDCONFIG=Release
 	goto begin
+) else (
+	set BUILDCONFIG=%3
 )
-set BUILDCONFIG=%3
 
 :begin
 echo BUILDCONFIG is !BUILDCONFIG!
