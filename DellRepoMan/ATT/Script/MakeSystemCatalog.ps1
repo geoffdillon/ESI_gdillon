@@ -38,8 +38,12 @@
 	folder structure is required but it is assumed that all DUPs for all systems will be found under one path 
 	hierarchy.  If more than one copy of a DUP is present the first one found will be used.
 	
+	.PARAMETER TargetOSes
+	An array of strings [string[]] that determines which Target Operating Systems will be included in the base catalog.
+	Allowed values are 'LIN', 'WIN64', and 'WIN'.  Default is 'LIN' only. More than one OS can be specified at a time.
+	
 	.EXAMPLE
-	.\MakeSystemCatalog.ps1 -SystemNames 'DSS9600','DCS1610' -SystemDataFilePath 'c:\work\ATT_Updates\ATTSystemData.xml' -OutputCatalogPath 'c:\work\ATT_Updates\ATTBaseCatalog.xml' -DUPSearchPath 'c:\work\ATT_Updates\'
+	.\MakeSystemCatalog.ps1 -SystemNames 'DSS9600','DCS1610' -SystemDataFilePath 'c:\work\ATT_Updates\ATTSystemData.xml' -OutputCatalogPath 'c:\work\ATT_Updates\ATTBaseCatalog.xml' -DUPSearchPath 'c:\work\ATT_Updates\' -TargetOSes 'LIN','WIN64'
 	
 	.NOTES
 		Requires the following installs:
@@ -58,7 +62,8 @@ param(
 	[parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string[]]$SystemNames, 
 	[parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$SystemDataFilePath,
 	[parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$OutputCatalogPath,
-	[parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$DUPSearchPath
+	[parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$DUPSearchPath,
+	[parameter(Mandatory=$false)][ValidateSet('LIN','WIN','WIN64')][string[]]$TargetOSes = 'LIN'
 )
 
 Class DellSystem {
@@ -78,6 +83,7 @@ Class DellSystem {
 		$this.Agile = $SystemNode.Agile
 		$this.TargetSystems = $SystemNode.SelectSingleNode("TargetSystems")
 		$this.TargetOSes = $SystemNode.SelectSingleNode("TargetOSes")
+		# derive target OS
 		
 		# collect packages
 		
@@ -105,33 +111,74 @@ Class DellSystem {
 	
 
 	# Create the SoftwareBundle node and structure, return as XMLElement
-	[System.XML.XMLElement] GetSWBundle([System.XML.XMLDocument]$xmldoc) {
-		write-verbose "DellSystem:  Generating SoftwareBundle XML for System named $($this.Name)"
+	# targetOS must be one of 'LIN', 'WIN64', 'WIN'
+	[System.XML.XMLElement] GetSWBundle([System.XML.XMLDocument]$xmldoc, [string]$TargetOS = 'LIN') {
+		write-verbose "DellSystem:  Generating SoftwareBundle XML for System named $($this.Name) for TargetOS $TargetOS"
+		$pathOS = 'XX'
+		$btype = 'BTXX'
+		$displayOS = 'Unknown'
+		
+		switch ($TargetOS) {
+			'LIN' {
+				$pathOS = 'LX'
+				$btype = 'BTLX'
+				$displayOS = 'Linux'
+				
+			}
+			'WIN64' {
+				$pathOS = 'WIN64'
+				$btype = 'BTW64'
+				$displayOS = 'Windows x64'
+			}
+			'WIN' {
+				$pathOS = 'WIN'
+				$btype = 'BTW32'
+				$displayOS = 'Windows'
+			}
+			default {
+				throw "DellSystem: GetSWBundle: Unknown TargetOS specified: $TargetOS"
+			}
+		}
+		
 		[System.XML.XMLElement]$swbun = $xmldoc.CreateElement("SoftwareBundle")
 		$swbun.SetAttribute('schemaVersion','2.0')
-		$ID = "$($this.Agile)_LIN.670"
+		$ID = "$($this.Agile)_$($TargetOS).670"
 		$vver = "$($this.Agile).670"
-		$path = "PE$($this.Name)-LX-$($this.Agile).XML"
+		$path = "PE$($this.Name)-$pathOS-$($this.Agile).XML"
 		$swbun.SetAttribute('releaseID', $ID)
 		$swbun.SetAttribute('bundleID', $ID)
 		$swbun.SetAttribute('dateTime', $this.DateStamp)
 		$swbun.SetAttribute('vendorVersion', $vver)
 		$swbun.SetAttribute('path', $path)
-		$swbun.SetAttribute('bundleType', 'BTLX')
-		$swbun.SetAttribute('size', "0")
-		$swbun.AppendChild($this.MakeLangDisplayElement($xmldoc, 'Name', "System Bundle (Linux) PE$($this.Name) 670"))
+		$swbun.SetAttribute('bundleType', $btype)
+		$swbun.SetAttribute('size', "0")  # figure this out later
+		$swbun.AppendChild($this.MakeLangDisplayElement($xmldoc, 'Name', "System Bundle ($displayOS) PE$($this.Name) 670"))
 		$elem = $this.MakeLangDisplayElement($xmldoc, 'ComponentType', 'Dell System Bundle')
 		$elem.SetAttribute('value','SBDL')
 		$swbun.AppendChild($elem)
-		$swbun.AppendChild($this.MakeLangDisplayElement($xmldoc, 'Description', "System Bundle (Linux) PE$($this.Name) 670"))
+		$swbun.AppendChild($this.MakeLangDisplayElement($xmldoc, 'Description', "System Bundle ($displayOS) PE$($this.Name) 670"))
 		$elem = $this.MakeLangDisplayElement($xmldoc, 'Category', 'OpenManage Systems Management')
 		$elem.SetAttribute('value','SM')
 		$swbun.AppendChild($elem)
 		
 		$newnode = $xmldoc.ImportNode($this.TargetSystems, $true)
 		$swbun.AppendChild($newnode)
-		$newnode = $xmldoc.ImportNode($this.TargetOSes, $true)
-		$swbun.AppendChild($newnode)
+		
+		# get the selected TargetOS from the source XML
+		$tgtos = $xmldoc.CreateElement("TargetOSes")
+		
+		$oslist = $this.TargetOSes.GetElementsByTagName("OperatingSystem")
+		write-verbose "DellSystem: GetSWBundle: Preparing to search OperatingSystem nodes for match to osCode $TargetOS"
+		foreach ($os in $oslist) {
+			if ($os.osCode -ieq $TargetOS) {
+				write-verbose "DellSystem: GetSWBundle: Found OperatingSystem match"
+				$newnode = $xmldoc.ImportNode($os, $true)
+				$tgtos.AppendChild($newnode)
+			}
+		}
+		
+		$swbun.AppendChild($tgtos)
+		
 		$swbun.AppendChild($this.MakeLangDisplayElement($xmldoc, 'RevisionHistory', "-"))
 		$elem = $this.MakeLangDisplayElement($xmldoc, 'ImportantInfo', "-")
 		$elem.SetAttribute('URL','http://support.dell.com')
@@ -141,17 +188,40 @@ Class DellSystem {
 		$content = $xmldoc.CreateElement("Contents")
 		$swbun.AppendChild($content)
 		
-		foreach ($pkg in $this.Packages) {
-			$elem = $xmlDoc.CreateElement("Package")
-			$elem.SetAttribute('path',$pkg.Path)
-			$content.AppendChild($elem)
+		$pkglist = $this.GetPackagelist($TargetOS)
+		if (-not $pkglist) {
+			write-warning "DellSystem: GetSWBundle: No packages found for TargetOS $TargetOS.  This SoftwareBundle for $($this.Name) will have no effect."
 		}
-	
+		else {
+			foreach ($pkg in $pkglist) {
+				$elem = $xmlDoc.CreateElement("Package")
+				$elem.SetAttribute('path',$pkg.Path)
+				$content.AppendChild($elem)
+			}
+		}
 		return $swbun
 	}
 	
-	[Hashtable[]]GetPackageList() {
-		return $this.Packages
+	[Hashtable[]]GetPackageList([string]$TargetOS) {
+	
+		write-verbose "DellSystem: GetPackageList: Getting list of packages for $($this.Name) for targetOS $TargetOS"
+		switch ($TargetOS) {
+			'LIN' {
+				$pkgrex = '.*\.BIN'
+			}
+			'WIN64' {
+				$pkgrex = '.*_WN64_.*\.EXE'
+			}
+			'WIN' {
+				$pkgrex = '.*_WN32_.*\.EXE'
+			}
+			default {
+				throw "DellSystem: GetPackageList: Unknown TargetOS specified: $TargetOS"
+			}
+		}
+		
+		$ospackages = $this.Packages | ? {$_.path -match $pkgrex}
+		return $osPackages
 	}
 
 }  # DellSystem
@@ -165,31 +235,52 @@ Class DellSystemCatalogs {
 	[System.XML.XMLElement[]]$SysNodes
 	[hashtable[]]$Components
 	[string]$DRMStorePath
+	[string]$prgactivity
+	[string]$prgcurop
+	[int]$prgcomplete
 	
 	DellSystemCatalogs([string]$XMLFileName) {
 		$this.XMLFileName = $XMLFileName
 		$this.XMLDoc = [System.XML.XMLDocument]::new()
 		$this.XMLDoc.Load($this.XMLFileName)
+		$this.prgactivity = "Generating Base Catalogs"
+		$this.prgcurop = "Initializing from XML"
+		$this.prgcomplete = 0
 		
 		if (-not $this.XMLDoc.BaseCatalogs) {
-			throw "Unable to load BaseCatalogs from $($this.XMLFileName)"
+			throw "DellSystemCatalogs: Unable to load BaseCatalogs from $($this.XMLFileName)"
 		}
 		
 		write-verbose "DellSystemCatalogs: Getting BaseCatalogs from $($this.XMLFileName)"
+		$this.UpdateProgress()
 		
 		$this.SysNodes = $this.XMLDoc.BaseCatalogs.GetElementsByTagName("System")
 		
+		if ($this.SysNodes.Count -eq 0) {
+			throw "DellSystemCatalogs: No System nodes were found in $XMLFileName."
+		}
+		
 		$this.Systems = @()
+		$prgstep = (10.0 / $this.SysNodes.Count)  # total progress will be 10 % for this phase
 		foreach ($sysnode in $this.SysNodes) {
 			write-verbose "DellSystemCatalogs: Found System named $($sysNode.Name)"
 			$this.Systems += [DellSystem]::new($sysnode)
+			$this.prgcomplete += $prgstep
+			$this.UpdateProgress()
+			
 		}
 		
 		$this.DateStamp = (Get-Date -format 'yyyy-MM-ddTHH:mm:ss') + (Get-timezone).BaseUtcOffset.ToString().Substring(0,6)
 		$this.Version = get-date -format 'yy.MM.dd'
 		$this.Components = @()
 		$this.DRMStorePath = join-path "$([Environment]::GetFolderPath([System.Environment+SpecialFolder]::CommonApplicationData))" 'Dell\drm\store'
+		$this.UpdateProgress()
 	}
+	
+	[void] UpdateProgress() {
+		write-progress -activity $this.prgactivity -CurrentOperation $this.prgcurop -PercentComplete $this.prgcomplete
+	}
+	
 	
 	[System.XML.XMLElement] MakeLangDisplayElement([System.XML.XMLDocument]$doc, [string]$TagName, [string]$Text) {
 		[System.XML.XMLElement]$elem = $doc.CreateElement($TagName)
@@ -234,16 +325,6 @@ Class DellSystemCatalogs {
 	
 	# search the software bundles for the given component 
 	[System.XML.XMLElement] GetSupportedSystemsXML([Hashtable]$comp, [System.XML.XMLDocument]$xmldoc) {
-	<#
-	  <Brand key="3" prefix="PE">
-        <Display lang="en"><![CDATA[PowerEdge]]></Display>
-        <Model systemID="07C3" systemIDType="BIOS">
-          <Display lang="en"><![CDATA[DSS9600]]></Display>
-        </Model>
-      </Brand>
-      <Brand key="69" prefix="PEC">
-	#>
-		
 		if (-not ($comp.SupportedSystems)) {
 			write-warning "DellSystemCatalogs: GetSupportedSystems: no supported systems found for $($comp.path)"
 			return $null
@@ -301,18 +382,32 @@ Class DellSystemCatalogs {
 		return $sptsysnode
 	}
 	
+	# route the request to the Linux or Windows function depending on the file extension
+	[System.XML.XMLElement] GetSWCompXML([hashtable]$comp, [System.XML.XMLDocument]$xmldoc, [string]$DUPSearchPath) {
+		$filex = $comp.path.split('.')[-1]
+		if ($filex -ieq 'BIN') {
+			return $this.GetSWCompXMLLinux($comp, $xmldoc, $DUPSearchPath)
+		}
+		elseif ($filex -ieq 'EXE') {
+			return $this.GetSWCompXMLWindows($comp, $xmldoc, $DUPSearchPath)
+		}
+		else {
+			throw "DellSystemCatalogs: GetSWCompXML: Unknown Target OS for component $($comp.path).  Only Linux and Windows are supported."
+		}
+		
+	}
 	
 	# extract xml from DUP and return as SoftwareComponent Element
-	[System.XML.XMLElement] GetSWCompXML([hashtable]$comp, [System.XML.XMLDocument]$xmldoc, [string]$DUPSearchPath) {
-		write-verbose "DellSystemCatalogs: GetSWCompXML: Generating SoftwareComponent XML for path $($comp.path)"
+	[System.XML.XMLElement] GetSWCompXMLLinux([hashtable]$comp, [System.XML.XMLDocument]$xmldoc, [string]$DUPSearchPath) {
+		write-verbose "DellSystemCatalogs: GetSWCompXMLLinux: Generating SoftwareComponent XML for path $($comp.path)"
 		
 		if (-not (test-path $DUPSearchPath)) {
-			throw "DellSystemCatalogs: GetSWCompXML: Package Search Path $DUPSearchPath does not exist."
+			throw "DellSystemCatalogs: GetSWCompXMLLinux: Package Search Path $DUPSearchPath does not exist."
 		}
 		$pf = get-childitem -path $DUPSearchPath -filter $comp.path -recurse | select -first 1
 		
 		if (-not $pf) {
-			throw "DellSystemCatalogs: GetSWCompXML: Package file $($comp.path) not found under search path $DUPSearchPath."
+			throw "DellSystemCatalogs: GetSWCompXMLLinux: Package file $($comp.path) not found under search path $DUPSearchPath."
 		}
 		else {
 			$pkgxmlpath = join-path $DUPSearchPath ($pf.basename + '.xml')
@@ -329,7 +424,7 @@ Class DellSystemCatalogs {
 		write-debug "XML data in $($pf.fullname) starts at line $pkgxmlstart and ends at $pkgxmlend"
 		
 		# cut the file into the xml part only
-		write-verbose "DellSystemCatalogs: GetSWCompXML: Extracting XML to target file $pkgxmlpath"
+		write-verbose "DellSystemCatalogs: GetSWCompXMLLinux: Extracting XML to target file $pkgxmlpath"
 		$cmdstr = "sh -c 'head -n $pkgxmlend $($pf.fullname.replace('\','/')) | tail -n +$pkgxmlstart > $($pkgxmlpath.replace('\','/'))'"
 		write-debug "Command line: $cmdstr"
 		invoke-expression "& $cmdstr"
@@ -351,6 +446,10 @@ Class DellSystemCatalogs {
 		$swcomp.SetAttribute('packageType', $swcomproot.packageType)
 		$swcomp.SetAttribute('rebootRequired', $swcomproot.rebootRequired)
 		$swcomp.SetAttribute('size', $pf.length)
+		#containerPowerCycleRequired="0"
+		$swcomp.SetAttribute('containerPowerCycleRequired', '0')
+		#xmlGenVersion=""
+		$swcomp.SetAttribute('xmlGenVersion', '')
 		
 		foreach ($nodename in @('Name','ComponentType','Description','LUCategory','Category','SupportedDevices','SupportedSystems','RevisionHistory','ImportantInfo','Criticality')) {
 			$node = $swcomproot.SelectSingleNode("//$nodename")
@@ -360,7 +459,7 @@ Class DellSystemCatalogs {
 				$swcomp.AppendChild($elem)
 			}
 			else {
-				write-warning "DellSystemCatalogs: GetSWCompXML: Node named $nodename not found in component $($comp.path) package XML."
+				write-verbose "DellSystemCatalogs: GetSWCompXMLLinux: Node named $nodename not found in component $($comp.path) package XML."
 			}
 		}
 		
@@ -379,17 +478,17 @@ Class DellSystemCatalogs {
 			}
 		}
 		if (-not $swcomp.SelectSingleNode("//SupportedSystems")) {
-			write-verbose "DellSystemCatalogs: GetSWCompXML: Constructing SupportedSystems node for $($comp.Path)"
+			write-verbose "DellSystemCatalogs: GetSWCompXMLLinux: Constructing SupportedSystems node for $($comp.Path)"
 			$supsys = $this.GetSupportedSystemsXML($comp, $xmldoc)
 			if ($supsys) {
 				$swcomp.AppendChild($supsys)
 			}
 			else {
-				write-warning "DellSystemCatalogs: GetSWCompXML: No Supported Systems found for component $($comp.path)."
+				write-warning "DellSystemCatalogs: GetSWCompXMLLinux: No Supported Systems found for component $($comp.path)."
 			}
 		}
 		if (-not $swcomp.SelectSingleNode("//RevisionHistory")) {
-			write-verbose "DellSystemCatalogs: GetSWCompXML: Constructing RevisionHistory node for $($comp.Path)"
+			write-verbose "DellSystemCatalogs: GetSWCompXMLLinux: Constructing RevisionHistory node for $($comp.Path)"
 			$elem = $this.MakeLangDisplayElement($xmldoc, 'RevisionHistory', '-')
 						
 			$swcomp.AppendChild($elem)
@@ -398,9 +497,120 @@ Class DellSystemCatalogs {
 		return $swcomp
 	}
 
+	[System.XML.XMLElement] GetSWCompXMLWindows([hashtable]$comp, [System.XML.XMLDocument]$xmldoc, [string]$DUPSearchPath) {
+		write-verbose "DellSystemCatalogs: GetSWCompXMLWindows: Generating SoftwareComponent XML for path $($comp.path)"
+		
+		if (-not (test-path $DUPSearchPath)) {
+			throw "DellSystemCatalogs: GetSWCompXMLWindows: Package Search Path $DUPSearchPath does not exist."
+		}
+		$pf = get-childitem -path $DUPSearchPath -filter $comp.path -recurse | select -first 1
+		
+		if (-not $pf) {
+			throw "DellSystemCatalogs: GetSWCompXMLWindows: Package file $($comp.path) not found under search path $DUPSearchPath."
+		}
+		
+		$pkgxmlpath = join-path $DUPSearchPath ($pf.basename + '.xml')
+		$pkgtemp = join-path $DUPSearchPath ($pf.basename + '_temp')
+		$pkgdotxml = join-path $pkgtemp 'package.xml'
+		
+		[System.XML.XMLElement]$swcomp = $xmldoc.CreateElement('SoftwareComponent')
 	
-	[void] CreateBaseCatalogXML([string[]] $SystemNames, [string]$OutputXMLFile, [string]$DUPSearchPath) {
-		write-verbose "Creating all-inclusive base catalog for $SystemNames to file named $OutputXMLFile"
+		write-verbose "DellSystemCatalogs: GetSWCompXMLWindows: Extracting package files to target $pkgtemp"
+		
+		new-item -itemtype Directory -Path $pkgtemp | out-null
+		$cmdstr = "$($pf.FullName) /s /extract=""$pkgtemp"""
+		write-debug "Command line: $cmdstr"
+		invoke-expression "& $cmdstr"
+		
+		$tries = 5
+		while (($tries -gt 0) -and (-not (test-path $pkgdotxml))) {
+			write-debug "Waiting for $pkgdotxml"
+			start-sleep -seconds 5
+			$tries--
+		}
+		if (-not (test-path $pkgdotxml)) {
+			throw "DellSystemCatalogs: GetSWCompXMLWindows: Extract of $($comp.path) failed to produce a package.xml file at $pkgdotxml."
+		}
+		
+		copy-item $pkgdotxml $pkgxmlpath 
+		[System.XML.XMLDocument]$pkgxml = [System.XML.XMLDocument]::new()
+		$pkgxml.Load($pkgxmlpath)
+		
+		$swcomproot = $pkgxml.SelectSingleNode("//SoftwareComponent")
+
+		$swcomp.SetAttribute('schemaVersion', '2.4')
+		$swcomp.SetAttribute('packageID', $swcomproot.packageID.tostring().substring(0,5))
+		$swcomp.SetAttribute('releaseID', $swcomproot.releaseID.tostring().substring(0,5))
+		$swcomp.SetAttribute('hashMD5', (get-filehash -path $pf.FullName -algorithm 'MD5').Hash.tolower())
+		$swcomp.SetAttribute('path', "$($comp.folder)\1\$($comp.path)")
+		$swcomp.SetAttribute('dateTime', $swcomproot.dateTime)
+		$swcomp.SetAttribute('releaseDate', $swcomproot.releaseDate)
+		$swcomp.SetAttribute('vendorVersion', $swcomproot.vendorVersion)
+		$swcomp.SetAttribute('dellVersion', $swcomproot.dellVersion)
+		$swcomp.SetAttribute('packageType', $swcomproot.packageType)
+		$swcomp.SetAttribute('rebootRequired', $swcomproot.rebootRequired)
+		$swcomp.SetAttribute('size', $pf.length)
+		#containerPowerCycleRequired="0"
+		$swcomp.SetAttribute('containerPowerCycleRequired', '0')
+		#xmlGenVersion=""
+		$swcomp.SetAttribute('xmlGenVersion', '')
+		
+		
+		foreach ($nodename in @('Name','ComponentType','Description','LUCategory','Category','SupportedDevices','SupportedSystems','RevisionHistory','ImportantInfo','Criticality')) {
+			$node = $swcomproot.SelectSingleNode("//$nodename")
+			
+			if ($node) { 
+				$elem = $xmldoc.ImportNode($node, $true)
+				$swcomp.AppendChild($elem)
+			}
+			else {
+				write-verbose "DellSystemCatalogs: GetSWCompXMLWindows: Node named $nodename not found in component $($comp.path) package XML."
+			}
+		}
+		
+		# fix stuff
+		$devices = $swcomp.SelectSingleNode("//SupportedDevices")
+		if ($devices) {
+			$rollback = $devices.SelectSingleNode("//RollbackInformation")
+			while ($rollback) {
+				$rollback.parentNode.RemoveChild($rollback)
+				$rollback = $devices.SelectSingleNode("//RollbackInformation")
+			}
+			$payload = $devices.SelectSingleNode("//PayloadConfiguration")
+			while ($payload) {
+				$payload.ParentNode.RemoveChild($payload)
+				$payload = $devices.SelectSingleNode("//PayloadConfiguration")
+			}
+		}
+		if (-not $swcomp.SelectSingleNode("//SupportedSystems")) {
+			write-verbose "DellSystemCatalogs: GetSWCompXMLWindows: Constructing SupportedSystems node for $($comp.Path)"
+			$supsys = $this.GetSupportedSystemsXML($comp, $xmldoc)
+			if ($supsys) {
+				$swcomp.AppendChild($supsys)
+			}
+			else {
+				write-warning "DellSystemCatalogs: GetSWCompXMLWindows: No Supported Systems found for component $($comp.path)."
+			}
+		}
+		if (-not $swcomp.SelectSingleNode("//RevisionHistory")) {
+			write-verbose "DellSystemCatalogs: GetSWCompXMLWindows: Constructing RevisionHistory node for $($comp.Path)"
+			$elem = $this.MakeLangDisplayElement($xmldoc, 'RevisionHistory', '-')
+						
+			$swcomp.AppendChild($elem)
+		}
+		remove-item -recurse -force $pkgtemp  # cleanup
+		remove-item $pkgxmlpath  # cleanup
+		
+		return $swcomp
+	}
+	
+	[void] CreateBaseCatalogXML([string[]] $SystemNames, [string]$OutputXMLFile, [string]$DUPSearchPath, [string[]]$TargetOSes) {
+		write-verbose "CreateBaseCatalogXML: Creating all-inclusive base catalog for $SystemNames to file named $OutputXMLFile"
+		$this.prgcurop = "Starting BaseCatalog XML"
+		
+		$this.UpdateProgress()
+		$prgstep = 30.0 / (($SystemNames.Count * $TargetOSes.Count) + 1 )
+		
 		[System.XML.XMLDocument]$OutputDoc = [System.XML.XMLDocument]::new()
 		$dec = $outputdoc.CreateXmlDeclaration("1.0","utf-16", $null)
 		$outputdoc.AppendChild($dec)
@@ -418,27 +628,42 @@ Class DellSystemCatalogs {
 		$relnotes = $this.MakeLangDisplayElement($outputdoc, "ReleaseNotes", 'Release Notes')
 		$Manifest.AppendChild($relnotes)
 		
-		$attribset2 = @('schemaVersion="2.0"','releaseID="VPJT7"','hashMD5="708e3774b98db772566007a092bbd218"','path="FOLDER05077911M/1/invcol_VPJT7_LN64_18_06_000_248_A00"','dateTime="2018-07-09T10:50:31Z"','releaseDate="July 09, 2018"','vendorVersion="18.06.000.248"','dellVersion="A00"','osCode="LIN64"')
-		$invcolnode = $this.MakeInvColElement($outputdoc, $attribset2)
-		$Manifest.AppendChild($invcolnode)
+		$attribsetlin = @('schemaVersion="2.0"','releaseID="VPJT7"','hashMD5="708e3774b98db772566007a092bbd218"','path="FOLDER05077911M/1/invcol_VPJT7_LN64_18_06_000_248_A00"','dateTime="2018-07-09T10:50:31Z"','releaseDate="July 09, 2018"','vendorVersion="18.06.000.248"','dellVersion="A00"','osCode="LIN64"')
+		$invcolnodelin = $this.MakeInvColElement($outputdoc, $attribsetlin)
+		$Manifest.AppendChild($invcolnodelin)
 		
-		#  Make Linux SoftwareBundle per system
+		$attribsetwin = @('schemaVersion="2.0"','releaseID="VPJT7"','hashMD5="ef4c8f851d4f0aaf4e1aafe3eba8bada"','path="FOLDER05077914M/1/invcol_VPJT7_WIN64_18_06_000_248_A00.exe"','dateTime="2018-07-09T10:50:31Z"','releaseDate="July 09, 2018"','vendorVersion="18.06.000.248"','dellVersion="A00"','osCode="WIN64"')
+		$invcolnodewin = $this.MakeInvColElement($outputdoc, $attribsetwin)
+		$Manifest.AppendChild($invcolnodewin)
+		$this.prgcomplete += $prgstep
+		$this.UpdateProgress()
+		
+		#  Make SoftwareBundle per system/OS
 		foreach ($name in $SystemNames) {
+			
 			$sys = $this.Systems | ? {$_.Name -eq $name}
 			if (-not $sys) {
 				write-error "A DellSystem object with the name $name was not found in the collection."
 			}
-		
-			[System.XML.XMLElement]$bundle = $sys.GetSWBundle($OutputDoc)
-			$Manifest.AppendChild($bundle)
-			$this.AddComponents($sys.GetPackageList(), $sys.Name)
+			foreach ($tgtOS in $TargetOSes) {			
+				$this.prgcurop = "Building SoftwareBundle for $name $tgtOS"
+				$this.UpdateProgress()
+				[System.XML.XMLElement]$bundle = $sys.GetSWBundle($OutputDoc, $tgtOS)
+				$Manifest.AppendChild($bundle)
+				$this.AddComponents($sys.GetPackageList($tgtOS), $sys.Name)
+				$this.prgcomplete += $prgstep
+			}
 		}
 		
 		# make a SoftwareComponent per package
 		write-verbose "DellSystemCatalogs:  Generating SoftwareComponent list"
+		$prgstep = 40.0 / ($this.Components.Count )
 		foreach ($comp in $this.Components) {
+			$this.prgcurop = "Generating SoftwareComponent node for $($comp.path)"
+			$this.UpdateProgress()
 			$elem = $this.GetSWCompXML($comp, $outputdoc, $DUPSearchPath)
 			$Manifest.AppendChild($elem)
+			$this.prgcomplete += $prgstep
 		}
 		
 		$elem = $outputdoc.CreateElement("Prerequisites")
@@ -455,6 +680,10 @@ Class DellSystemCatalogs {
 	# so that DRM can generate the export packages by whatever means selected.
 	[void] SetupDellRepoMgrStore() {
 		write-verbose "DellSystemCatalogs: SetupDellRepoMgrStore: Copying SoftwareComponent bin files to Dell Repo Mgr Store."
+		$this.prgcurop = "Updating Dell REpository Manager store"
+		
+		$this.UpdateProgress()
+		$prgstep = 20.0 / ($this.Components.Count )
 		
 		if (-not (test-path $this.DRMStorePath)) {
 			throw "DellSystemCatalogs: SetupDellRepoMgrStore:  Dell Repo Mgr Store path not found at $($this.DRMStorePath)."
@@ -462,36 +691,49 @@ Class DellSystemCatalogs {
 		
 		foreach ($comp in $this.Components) {
 			$pfbin = get-childitem -path $this.DUPSearchPath -filter $comp.path -recurse | select -first 1
+			$pfsign = ''
+			$targetsign = ''
 			
 			if (-not $pfbin) {
 				write-warning "DellSystemCatalogs: SetupDellRepoMgrStore:  Component file $($comp.path) not found in $($this.DUPSearchPath)."
 			}
-			$pfsign = get-item "$($pfbin.fullname).sign"
-			if (-not $pfsign) {
-				write-warning "DellSystemCatalogs: SetupDellRepoMgrStore:  Component file $($comp.path) not found in $($this.DUPSearchPath)."
-			}			
+			if ($pfbin.FullName -ilike '*.BIN') {
+				$pfsign = get-item "$($pfbin.fullname).sign"
+				if (-not $pfsign) {
+					write-warning "DellSystemCatalogs: SetupDellRepoMgrStore:  Component file $($comp.path) not found in $($this.DUPSearchPath)."
+				}			
+			}
 			$pkgpath = "$($comp.folder)\1\"
 			$targetpath = join-path $this.DRMStorePath $pkgpath
 			$targetbin = join-path $targetpath $pfbin.name
-			$targetsign = join-path $targetpath $pfsign.Name
+			if ($pfsign) {
+				$targetsign = join-path $targetpath $pfsign.Name
+			}
 			
 			if (-not (test-path $targetpath)) {
 				new-item -ItemType Directory -path $targetpath
 			}
-			
-			if (-not ((test-path $targetbin) -and (test-path $targetsign))) {
+			$this.prgcurop = "Copying $($pfbin.fullname) to the DRM store"
+			$this.UpdateProgress()
+				
+			if (-not (test-path $targetbin)) {
 				write-verbose "DellSystemCatalogs: SetupDellRepoMgrStore: Copying $($pfbin.fullname) to $targetpath."
+				
 				copy-item -Force -Path $pfbin.FullName -Destination $targetpath
-				write-verbose "DellSystemCatalogs: SetupDellRepoMgrStore: Copying $($pfsign.fullname) to $targetpath."
-				copy-item -Force -Path $pfsign.Fullname -Destination $targetpath
+				if ($pfsign -and (-not (test-path $targetsign))) {
+					write-verbose "DellSystemCatalogs: SetupDellRepoMgrStore: Copying $($pfsign.fullname) to $targetpath."
+					copy-item -Force -Path $pfsign.Fullname -Destination $targetpath
+					
+				}
 			}
 			else {
 				write-verbose "DellSystemCatalogs: SetupDellRepoMgrStore: Component $($pfbin.Name) already in $targetpath."
 			}
+			$this.prgcomplete += $prgstep
 		}
 	}
 }
 
 $dsc = [DellSystemCatalogs]::new($SystemDataFilePath)
-$dsc.CreateBaseCatalogXML($systemnames, $OutputCatalogPath, $DUPSearchPath )
+$dsc.CreateBaseCatalogXML($systemnames, $OutputCatalogPath, $DUPSearchPath, $TargetOSes )
 $dsc.SetupDellRepoMgrStore()
