@@ -237,11 +237,14 @@ Class DellSystemCatalogs {
 	[string]$prgactivity
 	[string]$prgcurop
 	[int]$prgcomplete
+	[string]$TempFolder
 	
 	DellSystemCatalogs([string]$XMLFileName) {
+		$this.TempFolder = $env:TEMP
+	
 		$this.XMLFileName = $XMLFileName
 		$this.XMLDoc = [System.XML.XMLDocument]::new()
-		$this.XMLDoc.Load($this.XMLFileName)
+		$this.XMLDoc.Load($this.XMLFileName)  # load the system data file
 		$this.prgactivity = "Generating Base Catalogs"
 		$this.prgcurop = "Initializing from XML"
 		$this.prgcomplete = 0
@@ -409,7 +412,8 @@ Class DellSystemCatalogs {
 			throw "DellSystemCatalogs: GetSWCompXMLLinux: Package file $($comp.path) not found under search path $DUPSearchPath."
 		}
 		else {
-			$pkgxmlpath = join-path $DUPSearchPath ($pf.basename + '.xml')
+			# this is the path to extract the file to
+			$pkgxmlpath = join-path $this.TempFolder ($pf.basename + '.xml')
 		}
 		
 		[System.XML.XMLElement]$swcomp = $xmldoc.CreateElement('SoftwareComponent')
@@ -508,8 +512,12 @@ Class DellSystemCatalogs {
 			throw "DellSystemCatalogs: GetSWCompXMLWindows: Package file $($comp.path) not found under search path $DUPSearchPath."
 		}
 		
-		$pkgxmlpath = join-path $DUPSearchPath ($pf.basename + '.xml')
-		$pkgtemp = join-path $DUPSearchPath ($pf.basename + '_temp')
+		# copy to local temp first to avoid running from share permissions denied.
+		$pftemp = join-path $this.TempFolder $pf.name
+		copy-item $pf.fullname $this.TempFolder
+		# this is the extract path for the XML file
+		$pkgxmlpath = join-path $this.TempFolder ($pf.basename + '.xml')
+		$pkgtemp = join-path $this.TempFolder ($pf.basename + '_temp')
 		$pkgdotxml = join-path $pkgtemp 'package.xml'
 		
 		[System.XML.XMLElement]$swcomp = $xmldoc.CreateElement('SoftwareComponent')
@@ -517,7 +525,7 @@ Class DellSystemCatalogs {
 		write-verbose "DellSystemCatalogs: GetSWCompXMLWindows: Extracting package files to target $pkgtemp"
 		
 		new-item -itemtype Directory -Path $pkgtemp | out-null
-		$cmdstr = "$($pf.FullName) /s /extract=""$pkgtemp"""
+		$cmdstr = "$pftemp /s /extract=""$pkgtemp"""
 		write-debug "Command line: $cmdstr"
 		invoke-expression "& $cmdstr"
 		
@@ -611,7 +619,7 @@ Class DellSystemCatalogs {
 		$prgstep = 30.0 / (($SystemNames.Count * $TargetOSes.Count) + 1 )
 		
 		[System.XML.XMLDocument]$OutputDoc = [System.XML.XMLDocument]::new()
-		$dec = $outputdoc.CreateXmlDeclaration("1.0","utf-16", $null)
+		$dec = $outputdoc.CreateXmlDeclaration("1.0","utf-16le", $null)
 		$outputdoc.AppendChild($dec)
 
 		[System.XML.XMLElement]$Manifest = $OutputDoc.CreateElement("Manifest")
