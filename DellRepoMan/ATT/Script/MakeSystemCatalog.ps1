@@ -606,6 +606,7 @@ Class DellSystemCatalogs {
 			$swcomp.AppendChild($elem)
 		}
 		remove-item -recurse -force $pkgtemp  # cleanup
+		remove-item $pftemp
 		remove-item $pkgxmlpath  # cleanup
 		
 		return $swcomp
