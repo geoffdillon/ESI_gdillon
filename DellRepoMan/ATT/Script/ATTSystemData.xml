@@ -59,22 +59,22 @@
 			<Package path="SAS-Drive_Firmware_MJY5P_LN_DT31_A00.BIN" folder="FOLDER04142452M" /> 
 			<Package path="" folder="" />
 			-->
-			<!-- from March 2019 -->
+			<!-- from April 2019 -->
 			<!-- linux -->
-			<Package path="BIOS_MR011_LN_2.9.1.BIN" folder="FOLDER05405989M" />
+			<Package path="BIOS_DC6N5_LN_2.8.1.BIN" folder="FOLDER05135710M" />
 			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_1HY5M_LN_2.61.60.60_A00.BIN" folder="FOLDER05296857M" />
 			<Package path="CPLD_Firmware_YGG3P_LN_1.0.1_A00.BIN" folder="FOLDER03954938M" />
-			<Package path="C6320_Network_Firmware_DKGC0_LN_16.5.20_A00.BIN" folder="FOLDER02973057M" />
+			<Package path="Network_Firmware_YHF9V_LN_18.8.9_A00.BIN" folder="FOLDER05244202M" />
 			<Package path="SAS-RAID_Firmware_F675Y_LN_25.5.5.0005_A13.BIN" folder="FOLDER04905006M" />
 			<Package path="SAS-Drive_Firmware_R2N0T_LN_PS26_A00.BIN" folder="FOLDER04039900M" />
 			<Package path="Serial-ATA_Firmware_KVKY5_LN_NA07_A00.BIN" folder="FOLDER04441877M" />
 			<Package path="Serial-ATA_Firmware_GMW4P_LN_NB33_A00.BIN" folder="FOLDER04400577M" />
 			<Package path="SAS-Drive_Firmware_MJY5P_LN_DT31_A00.BIN" folder="FOLDER04142452M" /> 
 			<!-- win 64 -->
-			<Package path="BIOS_MR011_WN64_2.9.1.EXE" folder="FOLDER05405992M" />
+			<Package path="BIOS_DC6N5_LN_2.8.1.EXE" folder="FOLDER05135708M" />
 			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_1HY5M_WN64_2.61.60.60_A00_02.EXE" folder="FOLDER05296867M" />
 			<Package path="CPLD_Firmware_YGG3P_WN64_1.0.1_A00.EXE" folder="FOLDER03954943M" />
-			<Package path="C6320_Network_Firmware_DKGC0_WN64_16.5.20_A00.EXE" folder="FOLDER02973063M" />
+			<Package path="Network_Firmware_YHF9V_LN_18.8.9_A00.EXE" folder="FOLDER05244203M" />
 			<Package path="SAS-RAID_Firmware_F675Y_WN64_25.5.5.0005_A13_01.EXE" folder="FOLDER04905010M" />
 			<Package path="SAS-Drive_Firmware_R2N0T_WN64_PS26_A00.EXE" folder="FOLDER04039909M" />
 			<Package path="Serial-ATA_Firmware_KVKY5_WN64_NA07_A00.EXE" folder="FOLDER04441880M" />
@@ -84,6 +84,7 @@
 	</System>
 	
 	<System Name="DSS9600" NickName="Stark" Agile="PH8939H">
+		<!-- AKA ARYA, SANSA, RICKON -->
 		<TargetSystems>
 			<Brand key="69" prefix="PEC">
 				<Display lang="en">Cloud Products</Display>
@@ -109,11 +110,11 @@
 			<Package path="SAS-RAID_Firmware_F675Y_LN_25.5.5.0005_A13.BIN" folder="FOLDER04905006M" />
 			<Package path="SAS-Drive_Firmware_MG2X8_LN_EA04.BIN" folder="FOLDER04888949M" />
 			-->
-			<!-- from March 2019 -->
+			<!-- from April 2019 -->
 			<!-- linux -->
 			<Package path="BIOS_TJDKF_LN_1.6.11.BIN" folder="FOLDER05332196M" />
-			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_G29X0_LN_3.21.21.22_A00.BIN" folder="FOLDER05085810M" />
-			<Package path="Network_Firmware_T6VN9_LN_18.5.17_A00.BIN" folder="FOLDER04867043M" />
+			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_FDMV1_LN_3.21.26.22_A00.BIN" folder="FOLDER05352961M" />
+			<Package path="Network_Firmware_YHF9V_LN_18.8.9_A00.BIN" folder="FOLDER05244202M" />
 			<Package path="SAS-RAID_Firmware_F675Y_LN_25.5.5.0005_A13.BIN" folder="FOLDER04905006M" />
 			<Package path="SAS-Drive_Firmware_RXFJF_LN_KT39_A00.BIN" folder="FOLDER05381396M" />
 			<Package path="SAS-Drive_Firmware_95C83_LN_DSF2_A00.BIN" folder="FOLDER04090824M" />			
@@ -121,13 +122,18 @@
 			<Package path="SAS-Drive_Firmware_MG2X8_LN_EA04.BIN" folder="FOLDER04888949M" />
 			<!-- win 64 -->
 			<Package path="BIOS_TJDKF_WN64_1.6.11.EXE" folder="FOLDER05332200M" />
-			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_G29X0_WN64_3.21.21.22_A00.EXE" folder="FOLDER05085824M" />
-			<Package path="Network_Firmware_T6VN9_WN64_18.5.17_A00.EXE" folder="FOLDER04867043M" />
+			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_FDMV1_LN_3.21.26.22_A00.EXE" folder="FOLDER05352966M" />
+			<Package path="Network_Firmware_YHF9V_LN_18.8.9_A00_01.EXE" folder="FOLDER05244203M" />
 			<Package path="SAS-RAID_Firmware_F675Y_WN64_25.5.5.0005_A13_01.EXE" folder="FOLDER04905010M" />
 			<Package path="SAS-Drive_Firmware_RXFJF_WN64_KT39_A00.EXE" folder="FOLDER05381393M" />
 			<Package path="SAS-Drive_Firmware_95C83_WN64_DSF2_A00.EXE" folder="FOLDER04090827M" />
 			<Package path="SAS-Drive_Firmware_89M5N_WN64_ST33_A00.EXE" folder="FOLDER05368803M" />
 			<Package path="SAS-Drive_Firmware_MG2X8_WN64_EA04_01.EXE" folder="FOLDER04888948M" />
+			
+			<!-- speculative -->
+			<!--  -->
+			<!--  -->
+			<!-- <Package path="" folder="" /> -->
 		</Contents>
 	</System>
 	
@@ -156,12 +162,12 @@
 			<Package path="Serial-ATA_Firmware_M5GJ1_LN_DB34_A00.BIN" folder="FOLDER04310772M" />
 			<Package path="Serial-ATA_Firmware_RJ5D9_LN_TA23_A00.BIN" folder="FOLDER04190368M" />
 			-->
-			<!-- from March 2019, some components are X-rev -->
+			<!-- from April 2019 -->
 			<!-- linux -->
 			<!-- Package path="Network_Firmware_T6HGD_LN_19.0.3_X03.BIN" folder="FOLDER05479995M" / NOT JUST YET -->
 			<Package path="DCS1610_BIOS_R0WM3_LN_1.4.8.BIN" folder="FOLDER04994104M" />
 			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_387FW_LN_3.21.21.21_A00.BIN" folder="FOLDER05009671M" />
-			<Package path="Network_Firmware_T6VN9_LN_18.5.17_A00.BIN" folder="FOLDER04867043M" />
+			<Package path="Network_Firmware_3W5Y5_LN_18.8.9_A00.BIN" folder="FOLDER05244440M" />
 			<Package path="SAS-RAID_Firmware_F675Y_LN_25.5.5.0005_A13.BIN" folder="FOLDER04905006M" />
 			<Package path="Serial-ATA_Firmware_YMFT2_LN_DL5A_A00.BIN" folder="FOLDER05434042M" />
 			<Package path="Serial-ATA_Firmware_M5GJ1_LN_DB34_A00.BIN" folder="FOLDER04310772M" />
@@ -169,11 +175,18 @@
 			<!-- win 64 -->
 			<Package path="DCS1610_BIOS_R0WM3_WN64_1.4.8.EXE" folder="FOLDER04994101M" />
 			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_387FW_WN64_3.21.21.21_A00.EXE" folder="FOLDER05009655M" />
-			<Package path="Network_Firmware_T6VN9_WN64_18.5.17_A00.EXE" folder="FOLDER04867043M" />
+			<Package path="Network_Firmware_3W5Y5_WN64_18.8.9_A00_01.EXE" folder="FOLDER05244443M" />
 			<Package path="SAS-RAID_Firmware_F675Y_WN64_25.5.5.0005_A13_01.EXE" folder="FOLDER04905010M" />
 			<Package path="Serial-ATA_Firmware_YMFT2_WN64_DL5A_A00.EXE" folder="FOLDER05434040M" />
 			<Package path="Serial-ATA_Firmware_M5GJ1_WN64_DB34_A00.EXE" folder="FOLDER04310774M" />
 			<Package path="Serial-ATA_Firmware_RJ5D9_WN64_TA23_A00.EXE" folder="FOLDER04190373M" />
+			
+			<!-- speculative -->
+			<!-- <Package path="DCS1610_BIOS_98CMJ_LN_2.1.3.BIN" folder="FOLDER05458286M" />   STILL XREV -->
+			<!-- <Package path="DCS1610_BIOS_98CMJ_WN64_2.1.3.EXE" folder="FOLDER05458284M" /> -->
+			<!-- <Package path="iDRAC-with-Lifecycle-Controller_Firmware_G29X0_LN_3.21.21.22_A00.BIN" folder="FOLDER05085810M" /> -->
+			<!-- <Package path="iDRAC-with-Lifecycle-Controller_Firmware_G29X0_WN64_3.21.21.22_A00.EXE" folder="FOLDER05085824M" /> -->
+			<!-- <Package path="" folder="" /> -->
 		</Contents>
 	</System>
 </BaseCatalogs>
