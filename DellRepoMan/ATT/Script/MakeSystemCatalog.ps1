@@ -229,6 +229,7 @@ Class DellSystemCatalogs {
 	[string]$XMLFileName
 	[System.XML.XMLDocument]$XMLDoc
 	[DellSystem[]]$Systems
+	[System.XML.XMLElement[]]$InvNodes
 	[string]$DateStamp
 	[string]$Version
 	[System.XML.XMLElement[]]$SysNodes
@@ -239,6 +240,7 @@ Class DellSystemCatalogs {
 	[int]$prgcomplete
 	[string]$TempFolder
 	
+	# reads a system data file that provides the platform details to build into the catalog.
 	DellSystemCatalogs([string]$XMLFileName) {
 		$this.TempFolder = $env:TEMP
 	
@@ -255,6 +257,11 @@ Class DellSystemCatalogs {
 		
 		write-verbose "DellSystemCatalogs: Getting BaseCatalogs from $($this.XMLFileName)"
 		$this.UpdateProgress()
+		
+		$this.InvNodes = $this.XMLDoc.BaseCatalogs.GetElementsByTagName("InventoryComponent")
+		if ($this.InvNodes.Count -eq 0) {
+			throw "DellSystemCatalogs: No InventoryComponent nodes were found in $XMLFileName."
+		}	
 		
 		$this.SysNodes = $this.XMLDoc.BaseCatalogs.GetElementsByTagName("System")
 		
@@ -280,6 +287,9 @@ Class DellSystemCatalogs {
 	}
 	
 	[void] UpdateProgress() {
+		if ($this.prgcomplete -gt 100) {
+			$this.prgcomplete = 100
+		}
 		write-progress -activity $this.prgactivity -CurrentOperation $this.prgcurop -PercentComplete $this.prgcomplete
 	}
 	
@@ -294,13 +304,26 @@ Class DellSystemCatalogs {
 		return $elem
 	}
 	
-	[System.XML.XMLElement] MakeInvColElement([System.XML.XMLDocument]$doc, [string[]]$attributes) {
-		[System.XML.XMLElement]$elem = $doc.CreateElement('InventoryComponent')
-		foreach ($attrib in $attributes) {
-			$name,$value = $attrib.Split('=').trim('"')
-			$elem.SetAttribute($name, $value)
+	[System.XML.XMLElement] MakeInvColElement([System.XML.XMLDocument]$doc, [string]$osCode) {
+	#[System.XML.XMLElement] MakeInvColElement([System.XML.XMLDocument]$doc, [string[]]$attributes) {
+		##OLD 
+		##[System.XML.XMLElement]$elem = $doc.CreateElement('InventoryComponent')
+		##foreach ($attrib in $attributes) {
+		#	$name,$value = $attrib.Split('=').trim('"')
+		#	$elem.SetAttribute($name, $value)
+		#}
+		
+		write-verbose "DellSystemCatalogs: MakeInvColElement: Looking for InventoryCollector Element for OSCode $oscode"
+		[System.XML.XMLElement]$invcol = $this.InvNodes | ? {$_.osCode -eq $osCode} | select -first 1 # there should be only one anyway
+		
+		if ($invcol -eq $null) {
+			throw "DellSystemCatalog: MakeInvColElement: An InventoryComponent was not found for osCode $osCode."
 		}
+		
+		write-verbose "DellSystemCatalogs: MakeInvColElement: Importing InventoryCollector XML for $($invcol.path)"
+		[System.XML.XMLElement]$elem = $doc.ImportNode($invcol, $true)   #this copies the node from the original doc to the output doc.
 		return $elem
+		
 	}
 	
 	[void] AddComponents([Hashtable[]]$MoreComponents, [string]$supportedsystem) {
@@ -636,12 +659,12 @@ Class DellSystemCatalogs {
 		$relnotes = $this.MakeLangDisplayElement($outputdoc, "ReleaseNotes", 'Release Notes')
 		$Manifest.AppendChild($relnotes)
 		
-		$attribsetlin = @('schemaVersion="2.0"','releaseID="VPJT7"','hashMD5="708e3774b98db772566007a092bbd218"','path="FOLDER05077911M/1/invcol_VPJT7_LN64_18_06_000_248_A00"','dateTime="2018-07-09T10:50:31Z"','releaseDate="July 09, 2018"','vendorVersion="18.06.000.248"','dellVersion="A00"','osCode="LIN64"')
-		$invcolnodelin = $this.MakeInvColElement($outputdoc, $attribsetlin)
+		#$attribsetlin = @('schemaVersion="2.0"','releaseID="VPJT7"','hashMD5="708e3774b98db772566007a092bbd218"','path="FOLDER05077911M/1/invcol_VPJT7_LN64_18_06_000_248_A00"','dateTime="2018-07-09T10:50:31Z"','releaseDate="July 09, 2018"','vendorVersion="18.06.000.248"','dellVersion="A00"','osCode="LIN64"')
+		$invcolnodelin = $this.MakeInvColElement($outputdoc, 'LIN64')
 		$Manifest.AppendChild($invcolnodelin)
 		
-		$attribsetwin = @('schemaVersion="2.0"','releaseID="VPJT7"','hashMD5="ef4c8f851d4f0aaf4e1aafe3eba8bada"','path="FOLDER05077914M/1/invcol_VPJT7_WIN64_18_06_000_248_A00.exe"','dateTime="2018-07-09T10:50:31Z"','releaseDate="July 09, 2018"','vendorVersion="18.06.000.248"','dellVersion="A00"','osCode="WIN64"')
-		$invcolnodewin = $this.MakeInvColElement($outputdoc, $attribsetwin)
+		#$attribsetwin = @('schemaVersion="2.0"','releaseID="VPJT7"','hashMD5="ef4c8f851d4f0aaf4e1aafe3eba8bada"','path="FOLDER05077914M/1/invcol_VPJT7_WIN64_18_06_000_248_A00.exe"','dateTime="2018-07-09T10:50:31Z"','releaseDate="July 09, 2018"','vendorVersion="18.06.000.248"','dellVersion="A00"','osCode="WIN64"')
+		$invcolnodewin = $this.MakeInvColElement($outputdoc, 'WIN64')
 		$Manifest.AppendChild($invcolnodewin)
 		$this.prgcomplete += $prgstep
 		$this.UpdateProgress()
@@ -686,9 +709,9 @@ Class DellSystemCatalogs {
 	# assumes that CreateBaseCatalogXML was already completed so that Components list is populated
 	# will copy the bin and bin.sign files to the appropriate folder in DRM store
 	# so that DRM can generate the export packages by whatever means selected.
-	[void] SetupDellRepoMgrStore() {
+	[void] SetupDellRepoMgrStore([string]$DUPSearchPath) {
 		write-verbose "DellSystemCatalogs: SetupDellRepoMgrStore: Copying SoftwareComponent bin files to Dell Repo Mgr Store."
-		$this.prgcurop = "Updating Dell REpository Manager store"
+		$this.prgcurop = "Updating Dell Repository Manager store"
 		
 		$this.UpdateProgress()
 		$prgstep = 20.0 / ($this.Components.Count )
@@ -697,18 +720,63 @@ Class DellSystemCatalogs {
 			throw "DellSystemCatalogs: SetupDellRepoMgrStore:  Dell Repo Mgr Store path not found at $($this.DRMStorePath)."
 		}
 		
-		foreach ($comp in $this.Components) {
-			$pfbin = get-childitem -path $this.DUPSearchPath -filter $comp.path -recurse | select -first 1
+		
+		foreach ($node in $this.InvNodes) {
+			$parts = $node.path.split('/')
+			$pfbin = get-childitem -path $DUPSearchPath -filter $parts[-1] -recurse | select -first 1
 			$pfsign = ''
 			$targetsign = ''
 			
 			if (-not $pfbin) {
-				write-warning "DellSystemCatalogs: SetupDellRepoMgrStore:  Component file $($comp.path) not found in $($this.DUPSearchPath)."
+				write-warning "DellSystemCatalogs: SetupDellRepoMgrStore:  Inventory Collector file $($node.path) not found in $DUPSearchPath."
+			}
+			if (-not ($pfbin.FullName -ilike '*.EXE')) {  # linux invcol file has no .bin extension
+				$pfsign = get-item "$($pfbin.fullname).sign"
+				if (-not $pfsign) {
+					write-warning "DellSystemCatalogs: SetupDellRepoMgrStore:  Component signature file for $($parts[-1]) not found in $DUPSearchPath."
+				}			
+			}
+			$pkgpath = join-path $parts[0] $parts[1]
+			$targetpath = join-path $this.DRMStorePath $pkgpath
+			$targetbin = join-path $targetpath $parts[-1]
+			if ($pfsign) {
+				$targetsign = join-path $targetpath $pfsign.Name
+			}
+			
+			if (-not (test-path $targetpath)) {
+				new-item -ItemType Directory -path $targetpath
+			}
+			$this.prgcurop = "Copying $($pfbin.fullname) to the DRM store"
+			$this.UpdateProgress()
+			
+			if (-not (test-path $targetbin)) {
+				write-verbose "DellSystemCatalogs: SetupDellRepoMgrStore: Copying $($pfbin.fullname) to $targetpath."
+				
+				copy-item -Force -Path $pfbin.FullName -Destination $targetpath
+				if ($pfsign -and (-not (test-path $targetsign))) {
+					write-verbose "DellSystemCatalogs: SetupDellRepoMgrStore: Copying $($pfsign.fullname) to $targetpath."
+					copy-item -Force -Path $pfsign.Fullname -Destination $targetpath
+					
+				}
+			}
+			else {
+				write-verbose "DellSystemCatalogs: SetupDellRepoMgrStore: Component $($pfbin.Name) already in $targetpath."
+			}
+			$this.prgcomplete += $prgstep		
+		}
+		
+		foreach ($comp in $this.Components) {
+			$pfbin = get-childitem -path $DUPSearchPath -filter $comp.path -recurse | select -first 1
+			$pfsign = ''
+			$targetsign = ''
+			
+			if (-not $pfbin) {
+				write-warning "DellSystemCatalogs: SetupDellRepoMgrStore:  Component file $($comp.path) not found in $DUPSearchPath."
 			}
 			if ($pfbin.FullName -ilike '*.BIN') {
 				$pfsign = get-item "$($pfbin.fullname).sign"
 				if (-not $pfsign) {
-					write-warning "DellSystemCatalogs: SetupDellRepoMgrStore:  Component file $($comp.path) not found in $($this.DUPSearchPath)."
+					write-warning "DellSystemCatalogs: SetupDellRepoMgrStore:  Component signature file for $($comp.path) not found in $DUPSearchPath."
 				}			
 			}
 			$pkgpath = "$($comp.folder)\1\"
@@ -744,4 +812,4 @@ Class DellSystemCatalogs {
 
 $dsc = [DellSystemCatalogs]::new($SystemDataFilePath)
 $dsc.CreateBaseCatalogXML($systemnames, $OutputCatalogPath, $DUPSearchPath, $TargetOSes )
-$dsc.SetupDellRepoMgrStore()
+$dsc.SetupDellRepoMgrStore($DUPSearchPath)

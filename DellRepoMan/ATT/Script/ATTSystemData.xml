@@ -18,17 +18,27 @@
 	collect additional details to fill in the <SoftwareComponent> schema for the package.
 -->
 <BaseCatalogs>
+	<!-- Inventory collectors are used to detect the existing devices and versions on the system.  These are packages that are frequently updated.
+		Find these in agile by following the item successors to the latest A-rev version.
+		Calculate the hashMD5 using powershell cmdlet "(get-filehash -algorithm MD5 -path invcol....).Hash.tolower().trim()"
+		dateTime and releaseDate are irrelevant but must be valid formats so just keep the same values as below.
+	-->
+	<InventoryComponent schemaVersion="2.0" releaseID="DJNVP" hashMD5="d316cc7de2955cf132f3132cc12d2710" path="FOLDER05474340M/1/invcol_DJNVP_LN64_19_04_200_472_A00" dateTime="2018-07-09T10:50:31Z" releaseDate="July 09, 2018" vendorVersion="19.04.200.472" dellVersion="A00" osCode="LIN64" />
+	<InventoryComponent schemaVersion="2.0" releaseID="DJNVP" hashMD5="ce94265581b1548be21c2fe6871e9f28" path="FOLDER05483427M/1/invcol_DJNVP_WIN64_19_04_200_472_A00.exe" dateTime="2018-07-09T10:50:31Z" releaseDate="July 09, 2018" vendorVersion="19.04.200.472" dellVersion="A00" osCode="WIN64" />
+	<!-- <InventoryComponent schemaVersion="2.0" releaseID="VPJT7" hashMD5="708e3774b98db772566007a092bbd218" path="FOLDER05077911M/1/invcol_VPJT7_LN64_18_06_000_248_A00" dateTime="2018-07-09T10:50:31Z" releaseDate="July 09, 2018" vendorVersion="18.06.000.248" dellVersion="A00" osCode="LIN64" /> -->
+	
 	<!-- List all of the Systems that will be supported with Linux updates for custom catalogs. 
 		  Use the Name field here to reference this System at the command line to be included in the BaseCatalog. -->
 	<System Name="DSS9500M" NickName="Metallica MLK" Agile="PHA491D" >
-		<!-- The TargetSystems node will be cloned and copied into the SoftwareBundle for this system. -->
+		<!-- The TargetSystems node will be cloned and copied into the SoftwareBundle for this system. The BIOS code identifies the hardware platform so this must be correct 
+			or else the software bundle will not match the target system and nothing will be applied. -->
 		<TargetSystems>
 			<Brand key="69" prefix="PEC">
 				<Display lang="en">Cloud Products</Display>
 				<Model systemID="071A" systemIDType="BIOS"><Display lang="en">DSS9500M</Display></Model>
 			</Brand>
 		</TargetSystems>
-		<!-- The TargetOSes node will be cloned and copied into the SoftwareBundle for this system. Only Linux is supported with this script at this time.-->
+		<!-- The TargetOSes node will be cloned and copied into the SoftwareBundle for this system.-->
 		<TargetOSes>
 			<OperatingSystem osCode="LIN" osVendor="DELL">
 				<Display lang="en">Embedded Linux</Display>
@@ -71,10 +81,10 @@
 			<Package path="Serial-ATA_Firmware_GMW4P_LN_NB33_A00.BIN" folder="FOLDER04400577M" />
 			<Package path="SAS-Drive_Firmware_MJY5P_LN_DT31_A00.BIN" folder="FOLDER04142452M" /> 
 			<!-- win 64 -->
-			<Package path="BIOS_DC6N5_LN_2.8.1.EXE" folder="FOLDER05135708M" />
+			<Package path="BIOS_DC6N5_WN64_2.8.1.EXE" folder="FOLDER05135709M" />
 			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_1HY5M_WN64_2.61.60.60_A00_02.EXE" folder="FOLDER05296867M" />
 			<Package path="CPLD_Firmware_YGG3P_WN64_1.0.1_A00.EXE" folder="FOLDER03954943M" />
-			<Package path="Network_Firmware_YHF9V_LN_18.8.9_A00.EXE" folder="FOLDER05244203M" />
+			<Package path="Network_Firmware_YHF9V_WN64_18.8.9_A00_01.EXE" folder="FOLDER05244203M" />
 			<Package path="SAS-RAID_Firmware_F675Y_WN64_25.5.5.0005_A13_01.EXE" folder="FOLDER04905010M" />
 			<Package path="SAS-Drive_Firmware_R2N0T_WN64_PS26_A00.EXE" folder="FOLDER04039909M" />
 			<Package path="Serial-ATA_Firmware_KVKY5_WN64_NA07_A00.EXE" folder="FOLDER04441880M" />
@@ -115,6 +125,7 @@
 			<Package path="BIOS_TJDKF_LN_1.6.11.BIN" folder="FOLDER05332196M" />
 			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_FDMV1_LN_3.21.26.22_A00.BIN" folder="FOLDER05352961M" />
 			<Package path="Network_Firmware_YHF9V_LN_18.8.9_A00.BIN" folder="FOLDER05244202M" />
+			<Package path="CPLD_Firmware_5GDF4_LN_1.0.7_A00.BIN" folder="FOLDER04730850M" />
 			<Package path="SAS-RAID_Firmware_F675Y_LN_25.5.5.0005_A13.BIN" folder="FOLDER04905006M" />
 			<Package path="SAS-Drive_Firmware_RXFJF_LN_KT39_A00.BIN" folder="FOLDER05381396M" />
 			<Package path="SAS-Drive_Firmware_95C83_LN_DSF2_A00.BIN" folder="FOLDER04090824M" />			
@@ -122,8 +133,9 @@
 			<Package path="SAS-Drive_Firmware_MG2X8_LN_EA04.BIN" folder="FOLDER04888949M" />
 			<!-- win 64 -->
 			<Package path="BIOS_TJDKF_WN64_1.6.11.EXE" folder="FOLDER05332200M" />
-			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_FDMV1_LN_3.21.26.22_A00.EXE" folder="FOLDER05352966M" />
-			<Package path="Network_Firmware_YHF9V_LN_18.8.9_A00_01.EXE" folder="FOLDER05244203M" />
+			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_FDMV1_WN64_3.21.26.22_A00_01.EXE" folder="FOLDER05352966M" />
+			<Package path="Network_Firmware_YHF9V_WN64_18.8.9_A00_01.EXE" folder="FOLDER05244203M" />
+			<Package path="CPLD_Firmware_5GDF4_WN64_1.0.7_A00.EXE" folder="FOLDER04730852M" />
 			<Package path="SAS-RAID_Firmware_F675Y_WN64_25.5.5.0005_A13_01.EXE" folder="FOLDER04905010M" />
 			<Package path="SAS-Drive_Firmware_RXFJF_WN64_KT39_A00.EXE" folder="FOLDER05381393M" />
 			<Package path="SAS-Drive_Firmware_95C83_WN64_DSF2_A00.EXE" folder="FOLDER04090827M" />
@@ -164,11 +176,11 @@
 			-->
 			<!-- from April 2019 -->
 			<!-- linux -->
-			<!-- Package path="Network_Firmware_T6HGD_LN_19.0.3_X03.BIN" folder="FOLDER05479995M" / NOT JUST YET -->
 			<Package path="DCS1610_BIOS_R0WM3_LN_1.4.8.BIN" folder="FOLDER04994104M" />
 			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_387FW_LN_3.21.21.21_A00.BIN" folder="FOLDER05009671M" />
 			<Package path="Network_Firmware_3W5Y5_LN_18.8.9_A00.BIN" folder="FOLDER05244440M" />
 			<Package path="SAS-RAID_Firmware_F675Y_LN_25.5.5.0005_A13.BIN" folder="FOLDER04905006M" />
+			<Package path="DCS1610_CPLD_Firmware_GCY9R_LN_1.0.4_A00.BIN" folder="FOLDER04850355M" />
 			<Package path="Serial-ATA_Firmware_YMFT2_LN_DL5A_A00.BIN" folder="FOLDER05434042M" />
 			<Package path="Serial-ATA_Firmware_M5GJ1_LN_DB34_A00.BIN" folder="FOLDER04310772M" />
 			<Package path="Serial-ATA_Firmware_RJ5D9_LN_TA23_A00.BIN" folder="FOLDER04190368M" />	
@@ -177,6 +189,7 @@
 			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_387FW_WN64_3.21.21.21_A00.EXE" folder="FOLDER05009655M" />
 			<Package path="Network_Firmware_3W5Y5_WN64_18.8.9_A00_01.EXE" folder="FOLDER05244443M" />
 			<Package path="SAS-RAID_Firmware_F675Y_WN64_25.5.5.0005_A13_01.EXE" folder="FOLDER04905010M" />
+			<Package path="DCS1610_CPLD_Firmware_GCY9R_WN64_1.0.4_A00.EXE" folder="FOLDER04850352M" />
 			<Package path="Serial-ATA_Firmware_YMFT2_WN64_DL5A_A00.EXE" folder="FOLDER05434040M" />
 			<Package path="Serial-ATA_Firmware_M5GJ1_WN64_DB34_A00.EXE" folder="FOLDER04310774M" />
 			<Package path="Serial-ATA_Firmware_RJ5D9_WN64_TA23_A00.EXE" folder="FOLDER04190373M" />
@@ -184,9 +197,100 @@
 			<!-- speculative -->
 			<!-- <Package path="DCS1610_BIOS_98CMJ_LN_2.1.3.BIN" folder="FOLDER05458286M" />   STILL XREV -->
 			<!-- <Package path="DCS1610_BIOS_98CMJ_WN64_2.1.3.EXE" folder="FOLDER05458284M" /> -->
-			<!-- <Package path="iDRAC-with-Lifecycle-Controller_Firmware_G29X0_LN_3.21.21.22_A00.BIN" folder="FOLDER05085810M" /> -->
-			<!-- <Package path="iDRAC-with-Lifecycle-Controller_Firmware_G29X0_WN64_3.21.21.22_A00.EXE" folder="FOLDER05085824M" /> -->
 			<!-- <Package path="" folder="" /> -->
+		</Contents>
+	</System>
+	<System Name="DSS8440" NickName="Cauldron" Agile="PH3446P">
+		<TargetSystems>
+			<Brand key="3" prefix="PE">
+				<Display lang="en">PowerEdge</Display>
+				<Model systemID="088D" systemIDType="BIOS"><Display lang="en">DSS8440</Display></Model>
+			</Brand>
+		</TargetSystems>
+		<TargetOSes>
+			<OperatingSystem osCode="LIN" osVendor="DELL">
+				<Display lang="en">Embedded Linux</Display>
+			</OperatingSystem>
+			<OperatingSystem osCode="WIN64" osVendor="Microsoft">
+				<Display lang="en">Microsoft Windows x64</Display>
+			</OperatingSystem>
+		</TargetOSes>
+		<Contents>
+			<!--BIOS  VVFYR -->
+			<!--CPLD 3DTWP -->
+			<!--NIC YHF9V Intel 18.8.0, 3W5Y5 Intel 18.8.0-->
+			<!--PCIESSD  KNW4M P4500/P4600 -->
+			<!--iDRAC 9P4C9 -->
+			<!--RAID  NH55C H730P+  F675Y H730/730P/830 -->
+			<!--SATA Drives
+				FW9F0 E002
+				JFY4J HF55
+				R6F04 DL5A
+				1FH1Y HE56
+				N63DY DL61
+			-->
+			
+			<Package path="DSS8440_BIOS_VVFYR_LN_1.6.71_A00.BIN" folder="FOLDER05509725M" />
+			<Package path="DSS8440_CPLD_Firmware_3DTWP_LN_1.0.0_A00.BIN" folder="FOLDER05511294M" />
+			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_9P4C9_LN_3.21.109.21_A00.BIN" folder="FOLDER05497125M" />
+			<Package path="SAS-RAID_Firmware_F675Y_LN_25.5.5.0005_A13.BIN" folder="FOLDER04905006M" />
+			<Package path="Network_Firmware_3W5Y5_LN_18.8.9_A00.BIN" folder="FOLDER05244440M" />
+			<!-- Package path="Serial-ATA_Firmware_YMFT2_LN_DL5A_A00.BIN" folder="FOLDER05434042M" />
+			<Package path="Serial-ATA_Firmware_M5GJ1_LN_DB34_A00.BIN" folder="FOLDER04310772M" />
+			<Package path="Serial-ATA_Firmware_RJ5D9_LN_TA23_A00.BIN" folder="FOLDER04190368M" / -->	
+			<!-- win 64 -->
+			<Package path="DSS8440_BIOS_VVFYR_WN64_1.6.71_A00.EXE" folder="FOLDER05509724M" />
+			<Package path="DSS8440_CPLD_Firmware_3DTWP_WN64_1.0.0_A00.EXE" folder="FOLDER05511292M" />
+			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_9P4C9_WN64_3.21.109.21_A00.EXE" folder="FOLDER05497114M" />
+			<Package path="SAS-RAID_Firmware_F675Y_WN64_25.5.5.0005_A13_01.EXE" folder="FOLDER04905010M" />
+			<Package path="Network_Firmware_3W5Y5_WN64_18.8.9_A00_01.EXE" folder="FOLDER05244443M" />
+			<!--Package path="Serial-ATA_Firmware_YMFT2_WN64_DL5A_A00.EXE" folder="FOLDER05434040M" />
+			<Package path="Serial-ATA_Firmware_M5GJ1_WN64_DB34_A00.EXE" folder="FOLDER04310774M" />
+			<Package path="Serial-ATA_Firmware_RJ5D9_WN64_TA23_A00.EXE" folder="FOLDER04190373M" / -->	
+		</Contents>
+	</System>
+	
+	<System Name="DSS8440S" NickName="Sceptre" Agile="PH7013P">
+		<TargetSystems>
+			<Brand key="3" prefix="PE">
+				<Display lang="en">PowerEdge</Display>
+				<Model systemID="093A" systemIDType="BIOS"><Display lang="en">DSS8440S</Display></Model>
+			</Brand>
+		</TargetSystems>
+		<TargetOSes>
+			<OperatingSystem osCode="LIN" osVendor="DELL">
+				<Display lang="en">Embedded Linux</Display>
+			</OperatingSystem>
+			<OperatingSystem osCode="WIN64" osVendor="Microsoft">
+				<Display lang="en">Microsoft Windows x64</Display>
+			</OperatingSystem>
+		</TargetOSes>
+		<Contents>
+			<!--BIOS   -->
+			<!--NIC -->
+			<!--PCIESSD   -->
+			<!--iDRAC -->
+			<!--RAID   -->
+			<!--SATA Drives
+				
+			-->
+			<!-- Package path="DCS1610_BIOS_R0WM3_LN_1.4.8.BIN" folder="FOLDER04994104M" />
+			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_387FW_LN_3.21.21.21_A00.BIN" folder="FOLDER05009671M" />
+			<Package path="Network_Firmware_3W5Y5_LN_18.8.9_A00.BIN" folder="FOLDER05244440M" />
+			<Package path="SAS-RAID_Firmware_F675Y_LN_25.5.5.0005_A13.BIN" folder="FOLDER04905006M" />
+			<Package path="DCS1610_CPLD_Firmware_GCY9R_LN_1.0.4_A00.BIN" folder="FOLDER04850355M" />
+			<Package path="Serial-ATA_Firmware_YMFT2_LN_DL5A_A00.BIN" folder="FOLDER05434042M" />
+			<Package path="Serial-ATA_Firmware_M5GJ1_LN_DB34_A00.BIN" folder="FOLDER04310772M" />
+			<Package path="Serial-ATA_Firmware_RJ5D9_LN_TA23_A00.BIN" folder="FOLDER04190368M" / -->	
+			<!-- win 64 -->
+			<!-- Package path="DCS1610_BIOS_R0WM3_WN64_1.4.8.EXE" folder="FOLDER04994101M" />
+			<Package path="iDRAC-with-Lifecycle-Controller_Firmware_387FW_WN64_3.21.21.21_A00.EXE" folder="FOLDER05009655M" />
+			<Package path="Network_Firmware_3W5Y5_WN64_18.8.9_A00_01.EXE" folder="FOLDER05244443M" />
+			<Package path="SAS-RAID_Firmware_F675Y_WN64_25.5.5.0005_A13_01.EXE" folder="FOLDER04905010M" />
+			<Package path="DCS1610_CPLD_Firmware_GCY9R_WN64_1.0.4_A00.EXE" folder="FOLDER04850352M" />
+			<Package path="Serial-ATA_Firmware_YMFT2_WN64_DL5A_A00.EXE" folder="FOLDER05434040M" />
+			<Package path="Serial-ATA_Firmware_M5GJ1_WN64_DB34_A00.EXE" folder="FOLDER04310774M" />
+			<Package path="Serial-ATA_Firmware_RJ5D9_WN64_TA23_A00.EXE" folder="FOLDER04190373M" / -->	
 		</Contents>
 	</System>
 </BaseCatalogs>
