@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ATTSystemData.xml
+	Geoff Dillon 20190318
+
+	Use this XML file to encode the system platform information to support building custom catalogs for the AT&T platforms.
+	The details associated with each <System> will be used to build the <SoftwareBundle> schema in the BaseCatalog XML file.
+	
+	In addition to this file, the DUP Packages listed under <Contents> for each <System> must be located in a common folder structure.
+	for instance:
+	c:\work\ATT_Updates\Build\
+		DSS9500M\
+		DSS9600\
+		DCS1610\
+		Common\  (drives and RAID, etc)
+	
+	Given the DUPSearchPath at the command line (C:\work\ATT_Updates in this example), the script will search the subfolders to 
+	find each DUP package by name as listed in the Contents. It will extract the Package.XML file from each DUP package and will 
+	collect additional details to fill in the <SoftwareComponent> schema for the package.
+-->
+<BaseCatalogs>
+	<!-- Inventory collectors are used to detect the existing devices and versions on the system.  These are packages that are frequently updated.
+		Find these in agile by following the item successors to the latest A-rev version.
+		Calculate the hashMD5 using powershell cmdlet "(get-filehash -algorithm MD5 -path invcol....).Hash.tolower().trim()"
+		dateTime and releaseDate are irrelevant but must be valid formats so just keep the same values as below.
+	-->
+	<InventoryComponent schemaVersion="2.0" releaseID="DJNVP" hashMD5="d316cc7de2955cf132f3132cc12d2710" path="FOLDER05474340M/1/invcol_DJNVP_LN64_19_04_200_472_A00" dateTime="2018-07-09T10:50:31Z" releaseDate="July 09, 2018" vendorVersion="19.04.200.472" dellVersion="A00" osCode="LIN64" />
+	<InventoryComponent schemaVersion="2.0" releaseID="DJNVP" hashMD5="ce94265581b1548be21c2fe6871e9f28" path="FOLDER05483427M/1/invcol_DJNVP_WIN64_19_04_200_472_A00.exe" dateTime="2018-07-09T10:50:31Z" releaseDate="July 09, 2018" vendorVersion="19.04.200.472" dellVersion="A00" osCode="WIN64" />
+	<!-- <InventoryComponent schemaVersion="2.0" releaseID="VPJT7" hashMD5="708e3774b98db772566007a092bbd218" path="FOLDER05077911M/1/invcol_VPJT7_LN64_18_06_000_248_A00" dateTime="2018-07-09T10:50:31Z" releaseDate="July 09, 2018" vendorVersion="18.06.000.248" dellVersion="A00" osCode="LIN64" /> -->
+	
+	<!-- List all of the Systems that will be supported with Linux updates for custom catalogs. 
+		  Use the Name field here to reference this System at the command line to be included in the BaseCatalog. -->
+	<System Name="DSS8440" NickName="DSS Cauldron" Agile="PH6370P" >
+		<!-- The TargetSystems node will be cloned and copied into the SoftwareBundle for this system. The BIOS code identifies the hardware platform so this must be correct 
+			or else the software bundle will not match the target system and nothing will be applied. -->
+		<TargetSystems>
+			<Brand key="3" prefix="PE">
+				<Display lang="en">PowerEdge</Display>               
+				<Model systemID="088D" systemIDType="BIOS"><Display lang="en">DSS8440</Display></Model>
+			</Brand>
+		</TargetSystems>
+		<!-- The TargetOSes node will be cloned and copied into the SoftwareBundle for this system.-->
+		<TargetOSes>
+			<OperatingSystem osCode="LIN" osVendor="DELL">
+				<Display lang="en">Embedded Linux</Display>
+			</OperatingSystem>
+			<OperatingSystem osCode="WIN64" osVendor="Microsoft">
+				<Display lang="en">Microsoft Windows x64</Display>
+			</OperatingSystem>					
+		</TargetOSes>
+		<Contents>
+			<!-- Every DUP that must be included for this platform, plus the Agile FOLDER name.  
+				You can get the FOLDER name from the AGILE record under 'Attachments'.
+				Specifically its the folder name of the .BIN or .EXE file.  This folder name will be used 
+				to build a path under the local DRM store to place the package files.
+				Each Linux package requires both the BIN and BIN.sign files to be together.  In agile 
+				however the BIN.sign file will have a different Folder name. You can forget the 
+				second folder name and only record the folder of the .BIN file. The .BIN.sign 
+				must be colocated with the .BIN file to be found under the DUPSearchPath.
+                version is the file version as posted in agile.  Assumed to be = 1 if not provided.
+			-->
+			<!-- linux -->
+            <Package path="DSS8440_BIOS_1G2MR_LN_2.4.6_A00.BIN" folder="FOLDER05882292M" />
+            <Package path="DSS8440_CPLD_Firmware_3DTWP_LN_1.0.0_A00.BIN" folder="FOLDER05511294M" />
+            <Package path="DSS8440_iDRAC-with-Lifecycle-Controller_Firmware_2875F_LN_3.34.119.34_A00.BIN" folder="FOLDER05783213M" />
+            <Package path="SAS-RAID_Firmware_G7N2C_LN_25.5.6.0009_A14.BIN" folder="FOLDER05714601M" />
+            <Package path="Network_Firmware_GK57C_LN_19.0.12_A00.BIN" folder="FOLDER05744317M" />
+            <Package path="Firmware_VV85D_LN_4.35_A00_03.BIN" folder="FOLDER05772279M" version="4"/>
+			<!-- win 64 -->
+            <Package path="DSS8440_BIOS_1G2MR_WN64_2.4.6_A00.EXE" folder="FOLDER05882290M" />
+            <Package path="DSS8440_CPLD_Firmware_3DTWP_WN64_1.0.0_A00.EXE" folder="FOLDER05511292M" />
+            <Package path="DSS8440_iDRAC-with-Lifecycle-Controller_Firmware_2875F_WN64_3.34.119.34_A00.EXE" folder="FOLDER05783209M" />
+            <Package path="SAS-RAID_Firmware_G7N2C_WN64_25.5.6.0009_A14.EXE" folder="FOLDER05714599M" />
+            <Package path="Network_Firmware_GK57C_WN64_19.0.12_A00.EXE" folder="FOLDER05744314M" />
+            <Package path="Firmware_VV85D_WN64_4.35_A00_03.EXE" folder="FOLDER05772283M" version="4"/>
+			
+		</Contents>
+	</System>
+</BaseCatalogs>
