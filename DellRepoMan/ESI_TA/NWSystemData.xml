@@ -45,7 +45,7 @@
 			<!-- linux -->
             <Package path="BIOS_G0WY9_LN_0.0.2.BIN" folder="FOLDER05885041M" version="2"/>
             <Package path="CPLD_Firmware_00WKC_LN_0.4.0_X00.BIN" folder="FOLDER05877635M" />
-            <Package path="_iDRAC-with-Lifecycle-Controller_Firmware_M5RGD_LN_4.00.109.00_X01.BIN" folder="FOLDER05876499M" />
+            <Package path="_iDRAC-with-Lifecycle-Controller_Firmware_M5RGD_LN_4.00.109.00_X04.BIN" folder="FOLDER05969032M" />
             <Package path="Diagnostics_Application_J89NX_LN_4301A34_4301.35.BIN" folder="FOLDER05669677M" />
             <Package path="XE2420_Firmware_47WHX_LN_4.88_A00.BIN" folder="FOLDER05878262M" />
             <!-- BOSS -->
