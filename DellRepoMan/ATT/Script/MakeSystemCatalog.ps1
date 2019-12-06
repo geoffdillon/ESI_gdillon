@@ -91,6 +91,10 @@ Class DellSystem {
 			$pkg = @{}
 			$pkg.path = $pkgnode.path
 			$pkg.Folder = $pkgnode.Folder
+            $pkg.version = $pkgnode.version
+            if (-not $pkg.version) {
+                $pkg.version = "1"
+            }
 			$this.Packages += $pkg
 		}
 		$this.DateStamp = (Get-Date -format 'yyyy-MM-ddTHH:mm:ss') + (Get-timezone).BaseUtcOffset.ToString().Substring(0,6)
@@ -464,7 +468,14 @@ Class DellSystemCatalogs {
 		$swcomp.SetAttribute('packageID', $swcomproot.packageID.tostring().substring(0,5))
 		$swcomp.SetAttribute('releaseID', $swcomproot.releaseID.tostring().substring(0,5))
 		$swcomp.SetAttribute('hashMD5', (get-filehash -path $pf.FullName -algorithm 'MD5').Hash.tolower())
-		$swcomp.SetAttribute('path', "$($comp.folder)\1\$($comp.path)")
+        if (-not $comp.version) {
+            $componentversion="1"
+        }
+        else {
+            $componentversion=$comp.version
+        }
+
+		$swcomp.SetAttribute('path', "$($comp.folder)\$componentversion\$($comp.path)")
 		$swcomp.SetAttribute('dateTime', $swcomproot.dateTime)
 		$swcomp.SetAttribute('releaseDate', $swcomproot.releaseDate)
 		$swcomp.SetAttribute('vendorVersion', $swcomproot.vendorVersion)
@@ -503,7 +514,8 @@ Class DellSystemCatalogs {
 				$payload = $devices.SelectSingleNode("//PayloadConfiguration")
 			}
 		}
-		if (-not $swcomp.SelectSingleNode("//SupportedSystems")) {
+        $systems = $swcomp.SelectSingleNode("//SupportedSystems")
+		if (-not $systems) {
 			write-verbose "DellSystemCatalogs: GetSWCompXMLLinux: Constructing SupportedSystems node for $($comp.Path)"
 			$supsys = $this.GetSupportedSystemsXML($comp, $xmldoc)
 			if ($supsys) {
@@ -513,6 +525,14 @@ Class DellSystemCatalogs {
 				write-warning "DellSystemCatalogs: GetSWCompXMLLinux: No Supported Systems found for component $($comp.path)."
 			}
 		}
+        else {
+            # make sure the branding matches our system
+            write-verbose "DellSystemCatalogs: GetSWCompXMLLinux: Checking existing supported systems for match"
+            $supsys = $this.GetSupportedSystemsXML($comp, $xmldoc)
+            if ($supsys) {
+                #$supsys.Branding.key
+            }
+        }
 		if (-not $swcomp.SelectSingleNode("//RevisionHistory")) {
 			write-verbose "DellSystemCatalogs: GetSWCompXMLLinux: Constructing RevisionHistory node for $($comp.Path)"
 			$elem = $this.MakeLangDisplayElement($xmldoc, 'RevisionHistory', '-')
@@ -572,7 +592,13 @@ Class DellSystemCatalogs {
 		$swcomp.SetAttribute('packageID', $swcomproot.packageID.tostring().substring(0,5))
 		$swcomp.SetAttribute('releaseID', $swcomproot.releaseID.tostring().substring(0,5))
 		$swcomp.SetAttribute('hashMD5', (get-filehash -path $pf.FullName -algorithm 'MD5').Hash.tolower())
-		$swcomp.SetAttribute('path', "$($comp.folder)\1\$($comp.path)")
+        if (-not $comp.version) {
+            $componentversion="1"
+        }
+        else {
+            $componentversion=$comp.version
+        }
+		$swcomp.SetAttribute('path', "$($comp.folder)\$componentversion\$($comp.path)")
 		$swcomp.SetAttribute('dateTime', $swcomproot.dateTime)
 		$swcomp.SetAttribute('releaseDate', $swcomproot.releaseDate)
 		$swcomp.SetAttribute('vendorVersion', $swcomproot.vendorVersion)
@@ -586,7 +612,7 @@ Class DellSystemCatalogs {
 		$swcomp.SetAttribute('xmlGenVersion', '')
 		
 		
-		foreach ($nodename in @('Name','ComponentType','Description','LUCategory','Category','SupportedDevices','SupportedSystems','RevisionHistory','ImportantInfo','Criticality')) {
+		foreach ($nodename in @('Name','ComponentType','Description','LUCategory','Category','SupportedDevices','RevisionHistory','ImportantInfo','Criticality')) {
 			$node = $swcomproot.SelectSingleNode("//$nodename")
 			
 			if ($node) { 
@@ -595,10 +621,17 @@ Class DellSystemCatalogs {
 			}
 			else {
 				write-verbose "DellSystemCatalogs: GetSWCompXMLWindows: Node named $nodename not found in component $($comp.path) package XML."
+                
+                if ($nodename -eq 'RevisionHistory') {
+                    write-verbose "DellSystemCatalogs: GetSWCompXMLWindows: Constructing RevisionHistory node for $($comp.Path)"
+                    $elem = $this.MakeLangDisplayElement($xmldoc, 'RevisionHistory', '-')
+                                
+                    $swcomp.AppendChild($elem)
+                }
 			}
 		}
 		
-		# fix stuff
+		# remove extra items such as rollbackinformation and payloadconfiguration that aren't required in the base catalog schema
 		$devices = $swcomp.SelectSingleNode("//SupportedDevices")
 		if ($devices) {
 			$rollback = $devices.SelectSingleNode("//RollbackInformation")
@@ -612,22 +645,16 @@ Class DellSystemCatalogs {
 				$payload = $devices.SelectSingleNode("//PayloadConfiguration")
 			}
 		}
-		if (-not $swcomp.SelectSingleNode("//SupportedSystems")) {
-			write-verbose "DellSystemCatalogs: GetSWCompXMLWindows: Constructing SupportedSystems node for $($comp.Path)"
-			$supsys = $this.GetSupportedSystemsXML($comp, $xmldoc)
-			if ($supsys) {
-				$swcomp.AppendChild($supsys)
-			}
-			else {
-				write-warning "DellSystemCatalogs: GetSWCompXMLWindows: No Supported Systems found for component $($comp.path)."
-			}
-		}
-		if (-not $swcomp.SelectSingleNode("//RevisionHistory")) {
-			write-verbose "DellSystemCatalogs: GetSWCompXMLWindows: Constructing RevisionHistory node for $($comp.Path)"
-			$elem = $this.MakeLangDisplayElement($xmldoc, 'RevisionHistory', '-')
-						
-			$swcomp.AppendChild($elem)
-		}
+        # we will construct the SupportedSystems using only the systems defined in the SystemsData XML
+        write-verbose "DellSystemCatalogs: GetSWCompXMLWindows: Constructing SupportedSystems node for $($comp.Path)"
+        $supsys = $this.GetSupportedSystemsXML($comp, $xmldoc)
+        if ($supsys) {
+            $swcomp.AppendChild($supsys)
+        }
+        else {
+            write-warning "DellSystemCatalogs: GetSWCompXMLWindows: No Supported Systems found for component $($comp.path)."
+        }
+
 		remove-item -recurse -force $pkgtemp  # cleanup
 		remove-item $pftemp
 		remove-item $pkgxmlpath  # cleanup
@@ -720,7 +747,7 @@ Class DellSystemCatalogs {
 			throw "DellSystemCatalogs: SetupDellRepoMgrStore:  Dell Repo Mgr Store path not found at $($this.DRMStorePath)."
 		}
 		
-		
+		write-verbose "DellSystemCatalogs: SetupDellRepoMgrStore:  Searching for binary files in $DUPSearchPath"
 		foreach ($node in $this.InvNodes) {
 			$parts = $node.path.split('/')
 			$pfbin = get-childitem -path $DUPSearchPath -filter $parts[-1] -recurse | select -first 1
@@ -809,7 +836,10 @@ Class DellSystemCatalogs {
 		}
 	}
 }
+if ($PSBoundParameters['Debug']) {
+    $DebugPreference = 'Continue'
+}
 
 $dsc = [DellSystemCatalogs]::new($SystemDataFilePath)
-$dsc.CreateBaseCatalogXML($systemnames, $OutputCatalogPath, $DUPSearchPath, $TargetOSes )
-$dsc.SetupDellRepoMgrStore($DUPSearchPath)
+#$dsc.CreateBaseCatalogXML($systemnames, $OutputCatalogPath, $DUPSearchPath, $TargetOSes )
+#$dsc.SetupDellRepoMgrStore($DUPSearchPath)
