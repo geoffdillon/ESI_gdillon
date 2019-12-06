@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NWSystemData.xml
+	Geoff Dillon 20191029
+
+    Platform information for Nights watch as of 10/29/19
+-->
+<BaseCatalogs>
+	<!-- Inventory collectors are used to detect the existing devices and versions on the system.  These are packages that are frequently updated.
+		Find these in agile by following the item successors to the latest A-rev version.
+		Calculate the hashMD5 using powershell cmdlet "(get-filehash -algorithm MD5 -path invcol....).Hash.tolower().trim()"
+		dateTime and releaseDate are irrelevant but must be valid formats so just keep the same values as below.
+	-->
+	<InventoryComponent schemaVersion="2.0" releaseID="DJNVP" hashMD5="d316cc7de2955cf132f3132cc12d2710" path="FOLDER05474340M/1/invcol_DJNVP_LN64_19_04_200_472_A00" dateTime="2018-07-09T10:50:31Z" releaseDate="July 09, 2018" vendorVersion="19.04.200.472" dellVersion="A00" osCode="LIN64" />
+	<InventoryComponent schemaVersion="2.0" releaseID="DJNVP" hashMD5="ce94265581b1548be21c2fe6871e9f28" path="FOLDER05483427M/1/invcol_DJNVP_WIN64_19_04_200_472_A00.exe" dateTime="2018-07-09T10:50:31Z" releaseDate="July 09, 2018" vendorVersion="19.04.200.472" dellVersion="A00" osCode="WIN64" />
+	<!-- <InventoryComponent schemaVersion="2.0" releaseID="VPJT7" hashMD5="708e3774b98db772566007a092bbd218" path="FOLDER05077911M/1/invcol_VPJT7_LN64_18_06_000_248_A00" dateTime="2018-07-09T10:50:31Z" releaseDate="July 09, 2018" vendorVersion="18.06.000.248" dellVersion="A00" osCode="LIN64" /> -->
+	
+	<!-- List all of the Systems that will be supported with Linux updates for custom catalogs. 
+		  Use the Name field here to reference this System at the command line to be included in the BaseCatalog. -->
+	<System Name="XE2420" NickName="Nights Watch" Agile="PHA799P" >
+		<!-- The TargetSystems node will be cloned and copied into the SoftwareBundle for this system. The BIOS code identifies the hardware platform so this must be correct 
+			or else the software bundle will not match the target system and nothing will be applied. -->
+		<TargetSystems>
+			<Brand key="3" prefix="PE">
+				<Display lang="en">PowerEdge</Display>               
+				<Model systemID="09C7" systemIDType="BIOS"><Display lang="en">XE2420</Display></Model>
+			</Brand>
+		</TargetSystems>
+		<!-- The TargetOSes node will be cloned and copied into the SoftwareBundle for this system.-->
+		<TargetOSes>
+			<OperatingSystem osCode="LIN" osVendor="DELL">
+				<Display lang="en">Embedded Linux</Display>
+			</OperatingSystem>
+		</TargetOSes>
+		<Contents>
+			<!-- Every DUP that must be included for this platform, plus the Agile FOLDER name.  
+				You can get the FOLDER name from the AGILE record under 'Attachments'.
+				Specifically its the folder name of the .BIN or .EXE file.  This folder name will be used 
+				to build a path under the local DRM store to place the package files.
+				Each Linux package requires both the BIN and BIN.sign files to be together.  In agile 
+				however the BIN.sign file will have a different Folder name. You can forget the 
+				second folder name and only record the folder of the .BIN file. The .BIN.sign 
+				must be colocated with the .BIN file to be found under the DUPSearchPath.
+                version is the file version as posted in agile.  Assumed to be = 1 if not provided.
+			-->
+			<!-- linux -->
+            <Package path="BIOS_G0WY9_LN_0.0.2.BIN" folder="FOLDER05885041M" version="2"/>
+            <Package path="CPLD_Firmware_00WKC_LN_0.4.0_X00.BIN" folder="FOLDER05877635M" />
+            <Package path="_iDRAC-with-Lifecycle-Controller_Firmware_M5RGD_LN_4.00.109.00_X01.BIN" folder="FOLDER05876499M" />
+            <Package path="Diagnostics_Application_J89NX_LN_4301A34_4301.35.BIN" folder="FOLDER05669677M" />
+            <Package path="XE2420_Firmware_47WHX_LN_4.88_A00.BIN" folder="FOLDER05878262M" />
+            <!-- BOSS -->
+            <Package path="Serial-ATA_Firmware_6FGD4_LN_E012_A00.BIN" folder="FOLDER05817757M" />
+            <Package path="SAS-RAID_Firmware_MC6F5_LN64_2.6.13.3022_A06.BIN" folder="FOLDER05697695M" />
+            <!-- HBAs -->
+            <Package path="SAS-Non-RAID_Firmware_TF1M6_LN_16.17.00.05_A07_01.BIN" folder="FOLDER05653993M" version="2"/>
+            <Package path="SAS-RAID_Firmware_T23TV_LN_25.5.6.0009_A12.BIN" folder="FOLDER05714616M" />
+            <Package path="SAS-RAID_Firmware_7N03N_LN_50.9.1-2905_A08_01.BIN" folder="FOLDER05874492M" version="2"/>
+            <!-- NICs -->
+            <Package path="Network_Firmware_TWFF6_LN_16.25.82.02.BIN" folder="FOLDER05908400M" />
+            <Package path="Network_Firmware_YP4R0_LN_19.5.9_X09.BIN" folder="FOLDER05898874M" />
+            <!-- SSD SAS -->
+            <Package path="SAS-Drive_Firmware_J5RD9_LN_B01C_A00.BIN" folder="FOLDER05564007M" />
+            <Package path="SAS-Drive_Firmware_XMCR5_LN_B707_A00.BIN" folder="FOLDER05461876M" />
+            <Package path="SAS-Drive_Firmware_8JNCM_LN_B318_A00.BIN" folder="FOLDER05587200M" />
+            <Package path="SAS-Drive_Firmware_98H72_LN_DWL7_A00.BIN" folder="FOLDER04182990M" />
+            <Package path="SAS-Drive_Firmware_1DJXX_LN_AS10_A00.BIN" folder="FOLDER05601935M" />
+            <Package path="SAS-Drive_Firmware_NPKW6_LN_AS0C_A00.BIN" folder="FOLDER04889131M" />
+            <Package path="SAS-Drive_Firmware_458GG_LN_DSA3_A00.BIN" folder="FOLDER05795149M" />
+            <Package path="SAS-Drive_Firmware_TMNTT_LN_DSF8_A00.BIN" folder="FOLDER05264845M" />
+            <!-- SSD SATA -->
+            <Package path="Serial-ATA_Firmware_8K7H6_LN_DL65_A00.BIN" folder="FOLDER05791102M" />
+            <Package path="Serial-ATA_Firmware_YMFT2_LN_DL5A_A00.BIN" folder="FOLDER05434042M" />
+            <Package path="Serial-ATA_Firmware_9PMDT_LN_HF56_A00.BIN" folder="FOLDER05429109M" />
+            <Package path="Serial-ATA_Firmware_4DN2V_LN_HE57_A00.BIN" folder="FOLDER05441566M" />
+            <!-- NVME -->
+            <Package path="Express-Flash-PCIe-SSD_Firmware_VFX88_LN64_E201DP31_A00_03.BIN" folder="FOLDER05359750M" version="4" />
+            <Package path="Express-Flash-PCIe-SSD_Firmware_90R8R_LN64_VDV1DP21_A00.BIN" folder="FOLDER05393672M" />
+            <Package path="Express-Flash-PCIe-SSD_Firmware_Y16DX_LN64_1.1.1_A01.BIN" folder="FOLDER05755752M" />
+            <Package path="Express-Flash-PCIe-SSD_Firmware_DYC3X_LN64_1.1.0_A01.BIN" folder="FOLDER05753599M" />
+			
+		</Contents>
+	</System>
+</BaseCatalogs>
