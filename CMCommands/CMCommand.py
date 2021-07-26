@@ -258,6 +258,7 @@ CMConfigSettings = {
     27: CMConfigSet("BpPresent", 27, 1, bppresenum, 0, True),
     28: CMConfigSet("BpId", 28, 2, bpenum, 0x303F, True),
     29: CMConfigSet("BVMSetting", 29, 1, enabdisab, 1, True),
+    30: CMConfigSet("CableAmpLimit", 30, 1, range(0,20), 0, False),  # added in v3.23, made read-only in v3.30
 }
 
 CMHiddenSettings = {
