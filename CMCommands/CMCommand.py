@@ -548,7 +548,7 @@ def CMGetLog(arglist):
         # bad connection, message in stderr
         return "Ipmitool Error.  Verify HOST, user, and password are correct"
     
-    log_cnt = (int((stdout[25:27]) + (stdout[22:24]),16))
+    log_cnt = (int((stdout[25:27]) + (stdout[22:24]),16)) - CMLogOffsetIncrement  # subtract one line to suppress the beginning of the circular log
     verbose("Got {} log bytes, {} lines of {} bytes.".format(log_cnt, log_cnt / CMLogOffsetIncrement, CMLogOffsetIncrement))
     if (tail):
         offset = log_cnt - tail
@@ -576,7 +576,7 @@ def CMGetLog(arglist):
         print (ascii_string)
         if (outfile):
             outfile.write(ascii_string + '\n')
-        offset += 64
+        offset += CMLogOffsetIncrement
 
     return ""
 
@@ -593,7 +593,7 @@ def CMSetConfig(arglist):
             propname,propval = arg.split('=')
             property = FindConfigByName(propname)
             if (not property):
-                errmsg = "No Hidden Config Property named {} was found\n".format((arg.split('='))[0])
+                errmsg = "No Config Property named {} was found\n".format((arg.split('='))[0])
                 return (errmsg + cmdhelp)
             errmsg = property.check_value(propval)
             if (not (errmsg == "OK")):
