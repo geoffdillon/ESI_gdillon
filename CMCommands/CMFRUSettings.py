@@ -9,6 +9,7 @@ import sys
 import subprocess
 import argparse
 import base64
+import configparser
 
 # global set by arguments
 use_raw_output = False
@@ -35,28 +36,11 @@ CMBoardPN = {
 CMHubblePN = "0R8Y73"
 CMLkAustinPN = "05V6V5"
 
-
-########!!!!!!!!########
-# USER MODIFY SETTINGS HERE
-AMCReconfigProperties = {
-    #Only values that may need to change from defaults listed
-    "RedundantPSUsN": 0, # sets 2+0, use 1 for 1+1
-    "ChassisServiceTag": '000W',  #Provide the service tag for the CHASSIS not the sled
-    "BpPresent": 1,  # if using NO BP chassis set to 0, otherwise set 1
-    "BpId": 0x0045, # default is NVME, Choose NoBP (0x0000), SATA (0x0025), NVME (0x0045), or E3.s (0x0185)
-    "CableAmpLimit": 0, # may be set to any integer up to 12
+# The names of the properties that will be captured or reset for FRU Update repairs
+ReconfigProperties = {
+    'ConfigProperties': ['RedundantPSUsN', 'ChassisServiceTag', 'BpPresent', 'ChassisPowerLimit', 'ChassisPowerCap', 'FTREnable', 'CableAmpLimit'],
+    'FRUSettings': ['ChassisPartNumber', 'ChassisSerialNumber', 'ChassisBoardPartNumber', 'ChassisBoardSerialNumber'],
 }
-
-AMCReconfigFRU = {
-    # most values don't need to change from defaults
-    'ChassisPartNumber': '0PC01NX20', # the physical chassis itself
-    'ChassisSerialNumber': '000W',  #also used as service tag
-    'ChassisBoardPartNumber': '05V6V5X20',  # for NT Chassis
-    'ChassisBoardSerialNumber': 'CN05V6V5WS30019S001W',  # per system, get your own number
-    'ChassisServiceTag': '', # Set to a chassis service tag
-}
-## End USER MODIFY AREA
-########!!!!!!!!!#########
 
 
 class CMInfoSet:
@@ -418,14 +402,14 @@ CMConfigCompCodes = {
 # search the list of Config Properties for the given name.
 def FindConfigByName(ConfigSettings, name):
     for id in ConfigSettings:
-        if (ConfigSettings[id].name == name):
+        if (ConfigSettings[id].name.lower() == name.lower()):
             return ConfigSettings[id]
     return None
 
 #Search the list of FRU Properties for the name match
 def FindFRUByName(FRUSettings, name):
     for id in FRUSettings:
-        if (FRUSettings[id].name == name):
+        if (FRUSettings[id].name.lower() == name.lower()):
             return FRUSettings[id]
     return None
 
@@ -489,10 +473,14 @@ def CMGetVersion(args):
                 pos += 1
     return output
 
-def CMGetConfig(args):
+def CMGetConfig(args, ini_output = False):
     # Get the FRU CM Board PN/Rev to determine the chassis type and HW level (UT/PT/ST)
+    if (ini_output):
+        verbose("CMGetConfig: Using INI style output.")
+    
     boardpn, boardrev = BoardPNAndRev()
     platname = ""
+    
     
     verbose("Chassis Board PN = {}, rev = {}".format(boardpn, boardrev))
     if (boardpn == CMHubblePN):
@@ -523,7 +511,11 @@ def CMGetConfig(args):
         return "Unsuccessful reponse: {} = {} ".format(outbytes[completion_code_idx], completion)
     
     # now parse the config data
-    output = "CM Config Settings: Board PN {} Platform Name {}\n".format(boardpn, platname)
+    if (ini_output):
+        output = "[ConfigProperties]\n"
+        output += "Board PN = {}\nPlatform Name = {}\n".format(boardpn, platname)
+    else:
+        output = "CM Config Properties: Board PN {} Platform Name {}\n".format(boardpn, platname)
     settingscount = int(outbytes[8], 16)
     position = 9  # byte after the number of properties
     for id in range(1, settingscount + 1):
@@ -534,16 +526,24 @@ def CMGetConfig(args):
             position += 1  # increment past the ID byte
             if (CMConfigSettings[id].len == 1):
                 numvalue = int(outbytes[position], 16)
-                value = CMConfigSettings[id].get_enum_val(numvalue)
+                if (ini_output):
+                    value = numvalue
+                else:
+                    value = CMConfigSettings[id].get_enum_val(numvalue)
             elif (CMConfigSettings[id].len == 2):
                 # LSB is first in all of these
                 numvalue = int(outbytes[position], 16) + int(outbytes[position+1], 16) * 0x100
-                value = CMConfigSettings[id].get_enum_val(numvalue)
+                if (ini_output):
+                    value = numvalue
+                else:
+                    value = CMConfigSettings[id].get_enum_val(numvalue)
             elif (CMConfigSettings[id].len == 8):
                 # must be svctag, therefore string
+                val = ""
                 value = ""
                 for offset in range(0,7): # 8th byte is a 00
-                    value += bytes.fromhex(outbytes[position+offset]).decode('ascii')
+                    val += bytes.fromhex(outbytes[position+offset]).decode('ascii')
+                value = val.strip().strip('\0')
             else:
                 value = ""
             #end if
@@ -558,7 +558,6 @@ def CMSetConfig(arglist):
     property = None
     propval = None
     errmsg = ""
-    verbose("CMSetConfig got arglist ", arglist)
     
     boardpn, boardrev = BoardPNAndRev()
     platname = ""
@@ -579,8 +578,8 @@ def CMSetConfig(arglist):
             if (len(arg.split('=')) < 2):  # argument is not well-formed
                 errmsg = "The argument name and value must be separated by an = sign -> '{}'\n".format(arg)
                 return (errmsg + cmdhelp)
-            propname,propval = arg.split('=')
-            property = FindConfigByName(propname)
+            propname,propval = arg.strip().split('=')
+            property = FindConfigByName(CMConfigSettings, propname)
             if (not property):
                 errmsg = "No Config Property named {} was found\n".format((arg.split('='))[0])
                 return (errmsg + cmdhelp)
@@ -599,8 +598,6 @@ def CMSetConfig(arglist):
         setval = int(propval)
         lsb = "0x" + (format(setval,'04x'))[2:]
         msb = "0x" + str(format(setval,'04x'))[:-2]  # make sure it comes out as string
-        #lsb = propval & 0x00FF
-        #msb = (propval >> 8) & 0x00FF  # mask upper bytes just to make sure
         propvalbytes = "{} {}".format(lsb, msb)   # lsb goes first I think
     elif (property.len == 8):
         # service tag is special
@@ -609,7 +606,7 @@ def CMSetConfig(arglist):
         for i in range(0,len(tag)):
             propvalbytes += hex(ord(tag[i])) + ' '
         for i in range(len(tag), 8):
-            propvalbytes += '0x00 '
+            propvalbytes += '0x20 '  # pad with spaces
         propvalbytes = propvalbytes.strip()
     else:
         return ("The property {} has an invalid byte length defined: {}.".format(property.name, property.len))
@@ -631,7 +628,7 @@ def CMSetConfig(arglist):
     
     return completion
 
-def CMGetFRU(args):
+def CMGetFRU(args, ini_output = False):
     cmdhelp = CMCommandHelpDetailed['GetFRU'.lower()]
     property = None
     propval = None
@@ -653,7 +650,12 @@ def CMGetFRU(args):
         return "CM Board PN {} is not implemented.".format(boardpn)    
     
     #Have to loop through all the addresses since there isn't one command to get all data
-    output = "CM FRU Settings: Board PN {} Platform Name {}\n".format(boardpn, platname)
+    if (ini_output):
+        output = "[FRUSettings]\n"
+        output += "Board PN = {}\nPlatform Name = {}\n".format(boardpn, platname)
+    else:
+        output = "CM FRU Settings: Board PN {} Platform Name {}\n".format(boardpn, platname)
+
     for fru in CMFRUSettings:
         stdout = call_ipmitool("{} 0x11 0x0 {} {} {} {}".format(log_preamble, CMFRUSettings[fru].addr_lsb, CMFRUSettings[fru].addr_msb, CMFRUSettings[fru].len, ending))
     
@@ -723,27 +725,125 @@ def CMSetFRU(arglist):
         return "Unsuccessful reponse: {} = {} ".format(outbytes[completion_code_idx], completion)
     return completion
 
-    
-def CMReconfig(args):
+def CMSaveConfig(arglist):
     # walk a list of CM Config properties andFRU Properties and set each one using SetConfig and SetFRU
-    cmdhelp = CMCommandHelpDetailed['Reconfigure'.lower()]
-    # don't care about args, we will read the data structure
+    cmdhelp = CMCommandHelpDetailed['SaveConfig'.lower()]
+    inifile = None
+    completion = 'Success'
     
-    # First set all the CM Config properties in the structure    
-    for PropName in AMCReconfigProperties:
-        myarg = ["{}={}".format(PropName, AMCReconfigProperties[PropName])]
-        print("Calling CMSetConfig with {}".format(myarg))
-        completion = CMSetConfig(myarg)
-        if (completion != 'Success'):
-            return completion
+    # process arguments
+    if (arglist and (len(arglist) > 0)):
+        for arg in arglist:
+            if (len(arg.split('=')) < 2):  # argument is not well-formed
+                errmsg = "The argument name and value must be separated by an = sign -> '{}'\n".format(arg)
+                return (errmsg + cmdhelp)
+            argname,inifilename = arg.split('=')
+            if (argname == 'inifile'):
+                try:
+                    inifile = open(inifilename, "wt")
+                except:
+                    return "Unable to open {} for writing.".format(inifilename)
+                    
+                if (not inifile):
+                    return "Unable to open {} for writing.".format(inifilename)
+            else:
+                return (cmdhelp)
+            #end if
+        #end for
+    else:
+        return (cmdhelp)
+    
+    ini_output = True
+    tempargs = []
+    allconfigs = configparser.ConfigParser()
+    verbose("Calling CMGetConfig with ini_output = True and parsing in ConfigParser")
+    configout = CMGetConfig(tempargs, True)
+    verbose(configout)
+    allconfigs.read_string(configout)
+    verbose("Calling CMGetFRU with ini_output = True and parsing in ConfigParser")
+    fruout = CMGetFRU(tempargs, True)
+    verbose(fruout)
+    allconfigs.read_string(fruout)
+    
+    
+    # make a new empty INI file parser
+    reconfigprops = configparser.ConfigParser()
+    # now loop through the dict of desired output settings and select the ones to save in reconfigprops
+    for key in ReconfigProperties:
+        if (not reconfigprops.has_section(key)):
+            reconfigprops.add_section(key)
+            verbose("Adding section {}".format(key))
+        for prop in ReconfigProperties[key]:
+            if (not allconfigs.has_section(key)):
+                return ("The config data read from the system is missing the Section named {}.\n".format(key))
+            propval = allconfigs.get(key, prop)
+            verbose("Adding option {} to section {} with value {}".format(prop, key, propval))
+            reconfigprops.set(key, prop, propval)
+            
+    verbose("Writing Config Properties and FRU Settings to {}".format(inifile))
+    reconfigprops.write(inifile)
+    
+    return completion
 
-    for FruName in AMCReconfigFRU:
-        myarg = ["{}={}".format(FruName, AMCReconfigFRU[FruName])]
-        print("Calling CMSetFRU with {}".format(myarg))
-        completion = CMSetFRU(myarg)
-        if (completion != 'Success'):
-            return completion
-        
+    
+def CMReconfig(arglist):
+    # walk a list of CM Config properties and FRU Properties and set each one using SetConfig and SetFRU
+    cmdhelp = CMCommandHelpDetailed['Reconfigure'.lower()]
+    reconfigprops = None
+    inifile = None
+    completion = ''
+    
+    # process arguments
+    if (arglist and (len(arglist) > 0)):
+        for arg in arglist:
+            if (len(arg.split('=')) < 2):  # argument is not well-formed
+                errmsg = "The argument name and value must be separated by an = sign -> '{}'\n".format(arg)
+                return (errmsg + cmdhelp)
+            argname,inifilename = arg.split('=')
+            if (argname == 'inifile'):
+                try:
+                    inifile = open(inifilename)
+                except:
+                    return "Unable to open {} for reading.".format(inifilename)
+                    
+                if (not inifile):
+                    return "Unable to open {} for reading.".format(inifilename)
+            else:
+                return (cmdhelp)
+            #end if
+        #end for
+    else:
+        return (cmdhelp)
+
+    # Validate the ini file format
+    try:
+        reconfigprops = configparser.ConfigParser()
+        reconfigprops.read(inifilename)
+    except:
+        return("Unable to parse the INI file {}.\n".format(inifilename))
+    
+    verbose("reconfigprops Sections = {}".format(reconfigprops.sections()))
+    # look for expected settings from ReconfigProperties and call the appropriate Set function
+    for key in ReconfigProperties:
+        if (not reconfigprops.has_section(key)):
+            return("The INI file is missing the required section named {}.".format(key))
+        for opt in ReconfigProperties[key]:
+            try:
+                optval = reconfigprops.get(key, opt)
+            except:
+                return("The INI file is missing the required option named {}".format(opt))
+            myarg = ["{}={}".format(opt, optval)]
+            if ('config' in key.lower()):
+                verbose("Calling CMSetConfig with {}".format(myarg))
+                completion = CMSetConfig(myarg)
+            elif ('fru' in key.lower()):
+                verbose("Calling CMSetFRU with {}".format(myarg))
+                completion = CMSetFRU(myarg)               
+            else:
+                verbose("The key {} is unknown, ignoring these options.")
+        # end for
+    #end for
+    
     return completion
 
 def CMCommandHelpFunc(arglist):
@@ -765,6 +865,7 @@ CMCommands = {
     'setconfig': CMSetConfig,
     'getfru': CMGetFRU,
     'setfru': CMSetFRU,
+    'saveconfig': CMSaveConfig,
     'reconfigure': CMReconfig,
     'help': CMCommandHelpFunc,
 }
@@ -794,9 +895,17 @@ The GetFRU comnmand will return the names and values of all the known FRU data f
 The SetFRU command takes the following required named arghuments (with -a):
     -a <frupropertyname>=<value> - set the given FRU property to the value.
         Use the GetFRU command to see the list of FRU property names""",
+    'saveconfig': """
+The SaveConfig command takes the name of a target output INI file as input and will write out an INI file
+with the CM Config Properties and FRU Settings and their current values.   This only collects
+settings that would be set back to defaults by a FRU reflash update.
+    -a inifile=<ini file path> - the path to a target output ini file
+    """,
     'reconfigure': """
-The Reconfigure command will set a predetermined list of configuration properties in the CM FRU
-to replace properties that were erased by a CM update.  This takes no paremeters.
+The Reconfigure command takes the name of an INI file as input and will apply the CM COnfig propery
+and FRU Settings values to the target system based on the file input to reset properties that 
+were erased by a CM update. 
+    -a inifile=<ini file path>  The path to an INI input file.
     """,
     'help': """
 The Help command may take arguments with -a to name specific commands.
