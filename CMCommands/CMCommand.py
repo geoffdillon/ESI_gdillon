@@ -17,6 +17,13 @@ You can obtain ipmitool for Windows from Dell at
     https://www.dell.com/support/home/en-us/drivers/driversdetails?driverid=w9nmr
 Setup the system path to include
     "C:\Program Files (x86)\Dell\SysMgt\bmc"
+
+To enable IPMI commands over LAN through the iDRAC, be sure to Enable the IPMI Over LAN
+    racadm set idrac.ipmilan.enable 1
+
+For iDRAC v5.00.10.00 ++
+A permissions allowance is required to run commands that bridge to the CM from the iDRAC.
+	racadm set idrac.security.allowipmii2ccommands 1
 """
 
 import os
