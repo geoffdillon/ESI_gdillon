@@ -1,9 +1,22 @@
 #!/usr/bin/python3
-# script to help automate IPMI rawcommands to the C6400 CM
+# Geoff Dillon geoff_dillon@dell.com
+# Copyright Dell, Inc 2022
+# FOR INTERNAL USE ONLY.  DO NOT distribute to customers or partners/vendors.
+# This script automates certain IPMI raw commands to the C6400/C6600 CM through the iDRAC.
+# REQUIRES python 3.8 or higher
 # REQUIRES ipmitool
+
 """
-This is a convenience utility to compose IPMI raw commands to the C6400 Chassis Managerand
-via a sled's iDrac and to parse the results into readable format.
+This is a convenience utility to compose IPMI raw commands to the C6400/C6600 Chassis Manager
+via a sled's iDrac and to parse the results into human-readable format.
+
+Use the command '-C help' to see the list of supported commands.
+    python CMCommand.py -C help
+
+You can obtain ipmitool for Windows from Dell at
+    https://www.dell.com/support/home/en-us/drivers/driversdetails?driverid=w9nmr
+Setup the system path to include
+    "C:\Program Files (x86)\Dell\SysMgt\bmc"
 """
 
 import os
