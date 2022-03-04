@@ -17,16 +17,30 @@ use_raw_output = False
 print_verbose = False
 
 # global constants
+#These are used to setup the header for the SendMessage command 0x6 0x34 through the iDRAC to the CM
 generic_preamble = "0x06 0x34 0x45 0x70 {} 0xc8 0x20 0x0"
-config_preamble = generic_preamble.format('0xc0')
-hidden_config_preamble = generic_preamble.format('0xc8')
-log_preamble = generic_preamble.format('0x28')
-powercycle_preamble = generic_preamble.format('0x00')
+config_preamble = generic_preamble.format('0xc0')  # for OEM NetFN 0x30
+hidden_config_preamble = generic_preamble.format('0xc8')  # OEM private NetFN 0x32
+log_preamble = generic_preamble.format('0x28')  # for NetFN Storage 0x0A
+app_preamble = generic_preamble.format('0x18')  # for NetFN Application 0x06
+chassis_preamble = generic_preamble.format('0x00')  # of NetFN Chassis 0x00
 
-ending = '0xd8'
+ending = '0xd8'  # this is a placeholder for the final checksum in the request
 notimp = "Not Implemented"
 completion_code_idx = 6  # 6th byte in the response is the completion codes
 CMLogOffsetIncrement = 64
+CMLogMaxLines = 999
+
+# used to identify supported Chassis
+CMBoardPN = {
+    '0R8Y73': "Hubble",
+    '05V6V5': "Lake Austin",
+}
+CMHubblePN = "0R8Y73"
+CMLkAustinPN = "05V6V5"
+
+PlainCmdResponseOffset = 3  # number of response header bytes for a 0x30 0x?? type command
+SendMsgCmdResponseOffset = 7  # number of resp header bytes for a Send msg command
 
 # Classes used in data structures
 class CMInfoSet:
@@ -49,8 +63,21 @@ class CMInfoSet:
             major = int(bytes[0], 16)
             minor = int(bytes[1], 16)
             return ("{}.{}".format(major, minor))
+        elif ((self.data == 'ver') and (len(bytes) == 4)):
+            aux1 = int(bytes[0], 16)
+            aux2 = int(bytes[1], 16)
+            aux3 = int(bytes[2], 16)
+            aux4 = int(bytes[3], 16)
+            return ("{}.{}.{}.{}".format(aux1, aux2, aux3, aux4))
         elif (self.data == 'int'):
+            if (self.len == 2):
+                return (str(int(bytes[1] + bytes[0], 16)))
             return (str(int(bytes[0], 16)))
+        elif (self.data =='signint'):
+            sb = int(bytes[0], 16)
+            if ((sb & 0x80) == 0x80):
+                return (str(sb - 256))
+            return (str(sb))
         elif (self.data == 'bit'):
             # for a bitmask just return the hex
             return bytes[0]
@@ -143,8 +170,14 @@ fanctlenum = {
     1: 'Openloop (1)',
     2: 'Closedloop (2)'
 }
-sledconfenum = {2: 'Half-width (2)', 4: 'Double-high half-width (4)'}
-redpsuenum = {0: '2+0 Nonredundant (0)', 1: '1+1 Redundant (1)'}
+
+fanctlschemeenum = {
+    '00': 'Emergency',
+    '04': 'Openloop',
+    '08': 'Closedloop'
+}
+sledconfenum = {2: 'Half-width', 4: 'Double-high half-width'}
+redpsuenum = {0: '2+0 Nonredundant', 1: '1+1 Redundant'}
 powercapenum = {
     0: 'Disabled (0)', 
     1: 'Static, Spread equal (1)', 
@@ -154,7 +187,12 @@ powercapenum = {
     5: 'Static, SledPowerLimit (5)'
 }
 
-fantypecfgenum = {0x13: 'Four-fan, Dual-rotor'}
+fantypecfgenum = {
+    0x09: 'Nine-fans, 3 Zones (0x09)',
+    0x13: 'Four-fans, 1 Zone (0x13)',
+    0x14: 'Five-fans, 2 Zones (+1 for PSU) (0x14)',
+    0x15: 'Four-fans, 2 Zones (0x15)',
+}
 
 bppresenum = {0: 'No Backplane (0)', 1: 'Backplane Present (1)'}
 
@@ -168,6 +206,14 @@ bpenum = {
     0x303F: '6x2.5 2x2 NVME only Backplane (0x303F)',
 }
 
+LABPEnum = {
+    0: 'No Backplane (0)',
+    0x0025: '4x2.5 SAS/SATA Backplane (0x0025)',
+    0x0045: '4x2.5 NVME Backplane (0x0045)',
+    0x0185: '8xEDSFF NVME Backplane (0x0185)',
+}
+
+
 sledcfgenum = {
     '00': 'Unknown',
     '01': 'FullWidth',
@@ -178,10 +224,23 @@ sledcfgenum = {
     '06': 'G5.5 Full',
 }
 chassisenum = {
-    0: 'Not Set (0)',
-    0x1c: 'Mercury (0x1c)',
-    0x56: 'Roadster (0x56)',
-    0x57: 'Steeda (0x57)',
+    '00': 'Not Set (0)',
+    '1c': 'Mercury (0x1c)',
+    '56': 'Roadster (0x56)',
+    '57': 'Steeda (0x57)',
+}
+
+fwupdatestateenum = {
+    '00': "No Status. FW is OK",
+    '01': "FW Image Corrupted",
+    '02': "Fan Table image corrupted",
+    '03': "Firmware update failed",
+    '04': "Fan Table update failed",
+    '05': "CM FW Update in progress",
+    '06': "PSU FW Update in progress",
+    '07': "CM FW Downgrade blocked.",
+    '08': "PSU Update-Sleds are not powered off.",
+    'ff': "No update action",
 }
 
 # Definition structures for system value lookup
@@ -208,8 +267,68 @@ CMConfigInfo = {
     19: CMInfoSet("HDD Status Support", 19, 1, 'bit'),
     20: CMInfoSet("HDD Num Support", 20, 1, 'int'),
     21: CMInfoSet("Fan Control Support", 21, 1, 'bit'),
-    22: CMInfoSet("Reserved", 22, 1, 'bit'),
+    22: CMInfoSet("ChasID/ThermThrt Spt", 22, 1, 'bit'),
     23: CMInfoSet("Fan Types", 23, 1, 'int'),
+    24: CMInfoSet("Number of Type1 Fans", 24, 1, 'int'),
+    25: CMInfoSet("Type1Fan Nrm Read", 25, 1, 'int'),
+    26: CMInfoSet("Type1Fan Nrm Max Read", 26, 1, 'int'),
+    27: CMInfoSet("Type1Fan Nrm Min Read", 27, 1, 'int'),
+    28: CMInfoSet("Type1Fan UC Threshold", 28, 1, 'int'),
+    29: CMInfoSet("Type1Fan LC Threshold", 29, 1, 'int'),
+}
+
+CMSensorInfo = {
+    3: CMInfoSet("FW Update Status", 3, 1, 'enum', fwupdatestateenum),
+    4: CMInfoSet("Chassis Inlet Temp", 4, 1, 'signint'),
+    5: CMInfoSet("Chassis Exhaust Temp", 5, 1, 'signint'),
+    6: CMInfoSet("Sled Power Reading", 6, 2, 'int'),
+    8: CMInfoSet("Sled Iin Amps Reading", 8, 1, 'int'),
+    9: CMInfoSet("Sled Vin Volt Reading", 9, 1, 'int'),
+    10: CMInfoSet("PSU Presence", 10, 1, 'bit'),
+    11: CMInfoSet("PSU Fault", 11, 1, 'bit'),
+    12: CMInfoSet("PSU1 Pout", 12, 2, 'int'),
+    14: CMInfoSet("PSU2 Pout", 14, 2, 'int'), 
+    16: CMInfoSet("PSU3 Pout", 16, 2, 'int'), 
+    18: CMInfoSet("PSU4 Pout", 18, 2, 'int'), 
+    20: CMInfoSet("PSU5 Pout", 20, 2, 'int'), 
+    22: CMInfoSet("PSU6 Pout", 22, 2, 'int'), 
+    24: CMInfoSet("PSU7 Pout", 24, 2, 'int'), 
+    26: CMInfoSet("PSU8 Pout", 26, 2, 'int'), 
+    28: CMInfoSet("Chass ID LED Sts", 28, 1, 'int'), 
+    29: CMInfoSet("Chass Fault LED Sts", 29, 1, 'int'), 
+    30: CMInfoSet("PSU AC Loss", 30, 1, 'bit'), 
+    31: CMInfoSet("Reserved", 31, 1, 'int'),
+    32: CMInfoSet("Fan Control Scheme", 32, 1, 'enum', fanctlschemeenum),
+    # leave off the fan speeds for now
+}
+
+CMPSUInfo = {
+    3: CMInfoSet("PSU Mismatch Snsr", 3, 1, 'bit'),
+    4: CMInfoSet("PSU Redund Snsr", 4, 1, 'bit'), 
+    5: CMInfoSet("PSU Config - X", 5, 1, 'int'),
+    6: CMInfoSet("PSU Config - N", 6, 1, 'int'),
+    7: CMInfoSet("PSU1 MAX_POUT", 7, 2, 'int'),
+    9: CMInfoSet("PSU2 MAX_POUT", 9, 2, 'int'),
+    11: CMInfoSet("PSU3 MAX_POUT", 11, 2, 'int'),
+    13: CMInfoSet("PSU4 MAX_POUT", 13, 2, 'int'),
+    15: CMInfoSet("PSU5 MAX_POUT", 15, 2, 'int'),
+    17: CMInfoSet("PSU6 MAX_POUT", 17, 2, 'int'),
+    19: CMInfoSet("PSU7 MAX_POUT", 19, 2, 'int'),
+    21: CMInfoSet("PSU8 MAX_POUT", 21, 2, 'int'),
+    # more PSUs are possible but no systems have that many
+}
+
+# another byte position type of data structure,
+# these are returned from Get Device Info
+CMDeviceIDInfo = {
+    7: CMInfoSet("Device ID", 7, 1, 'int'),
+    8: CMInfoSet("Device Rev", 8, 1, 'int'),
+    9: CMInfoSet("FW Main Version", 9, 2, 'ver'),
+    11: CMInfoSet("IPMI Version", 11, 1, 'int'),
+    12: CMInfoSet("Addl Device Support", 12, 1, 'bit'),
+    13: CMInfoSet("Mfg ID", 13, 3, 'int'),
+    16: CMInfoSet("Product ID", 16, 2, 'int'),
+    18: CMInfoSet("FW Aux Version", 18, 4, 'ver'),
 }
 
 # Defines the range of valid properties per CM version
@@ -228,7 +347,7 @@ CMValidHiddenConfigSettings = {
     '3': {'<5': range(1,5), '>=5': range(1,6)},
 }
 
-CMConfigSettings = {
+CMHubbleConfigSettings = {
     1: CMConfigSet("LockInternalUseArea", 1, 1, lockenum, 0, True),
     2: CMConfigSet("FanControlMode", 2, 1, fanctlenum, 2, True),
     3: CMConfigSet("FanSpeedSetting", 3, 1, range(0,101), 80, True),
@@ -261,6 +380,18 @@ CMConfigSettings = {
     30: CMConfigSet("CableAmpLimit", 30, 1, range(0,20), 0, False),  # added in v3.23, made read-only in v3.30
 }
 
+CMLkAustinConfigSettings = CMHubbleConfigSettings.copy()
+CMLkAustinConfigSettings[9] = CMConfigSet("ReserveByte1", 9, 1, None, 0, False)
+CMLkAustinConfigSettings[10] = CMConfigSet("ReserveByte2", 10, 1, None, 0, False)
+CMLkAustinConfigSettings[11] = CMConfigSet("ReserveByte3", 11, 1, None, 0, False)
+CMLkAustinConfigSettings[18] = CMConfigSet("ReservedWord1", 18, 2, None, 0, False)
+CMLkAustinConfigSettings[19] = CMConfigSet("ReservedWord2", 19, 2, None, 0, False)
+CMLkAustinConfigSettings[20] = CMConfigSet("ReservedWord3", 20, 2, None, 0, False)
+CMLkAustinConfigSettings[21] = CMConfigSet("ReservedWord4", 21, 2, None, 0, False)
+CMLkAustinConfigSettings[28] = CMConfigSet("BpId", 28, 2, LABPEnum, 0, True)
+
+
+
 CMHiddenSettings = {
     1: CMConfigSet('ChassisID', 1, 1, chassisenum, 0x1C, True),
     2: CMConfigSet('AllowFWDowngrade', 2, 1, enabdisab, 0, True),
@@ -292,10 +423,10 @@ def FindHiddenConfigByName(name):
     return None
     
 # search the list of Config Properties for the given name.
-def FindConfigByName(name):
-    for id in CMConfigSettings:
-        if (CMConfigSettings[id].name == name):
-            return CMConfigSettings[id]
+def FindConfigByName(ConfigSettings, name):
+    for id in ConfigSettings:
+        if (ConfigSettings[id].name == name):
+            return ConfigSettings[id]
     return None   
    
 def ConvertKey(key):
@@ -316,6 +447,7 @@ def ConvertPasscode(passbytes):
     return bytepasscode
 
 # Each function that implements an interaction with the CM much handle the request and response.
+# Actually calls GetChassisConfiguration
 def CMGetVersion(args):
     """  Example
      01 cc 1b 01 46 01 00 00 00 01 02 00 01 2d 37 ff
@@ -359,7 +491,84 @@ def CMGetVersion(args):
                 pos += 1
     return output
 
+def CMGetSensorInfo(args):
+    """  Example
+    01 d7 2a ff 19 00 00 00 00 00 03 00 00 00 20 00
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    08 38 2c 37 2d 37 2c 37 2d 6b 19 48 61
+    """
+    # don't care what args are
+    stdout = call_ipmitool('0x30 0x16')
+    
+    if (use_raw_output):
+        return stdout
+
+    outbytes = stdout.split()
+    # check the completion code.  first byte but only if error
+    if (len(outbytes) == 0):
+        # bad connection, message in stderr
+        return "Ipmitool Error.  Verify HOST, user, and password are correct"
+        
+    if ((len(outbytes) == 1) and (not (outbytes[0] == '01'))):  # there was an error completion code
+        completion = CMChasCfgCompCodes.get(outbytes[0], 'Unknown response')
+        return "Unsuccessful reponse: {} = {} ".format(outbytes[0], completion)
+        
+    # now parse the data
+    output = "Get Sensor Info:\n"
+    
+    bytecnt = int(outbytes[2], 16)
+    pos = 3 # next byte after the byte count
+    value = ""
+    fmtline = "{:22} = {:8}\n"
+    while (pos < bytecnt + 3):
+        cinfo = CMSensorInfo.get(pos, None)
+        if (not cinfo):
+            # for the undefined ones
+            output += fmtline.format("Unknown", outbytes[pos])
+            pos += 1
+        else:
+            value = cinfo.get_value(outbytes[pos:pos+cinfo.len])
+            output += fmtline.format(cinfo.name, value)
+            pos += cinfo.len
+            if (cinfo.len > 2):
+                output += "Invalid value definition: {}  Length: {}\n".format(cinfo.name, cinfo.len)
+                pos += 1
+    return output
+
+
+def BoardPNAndRev():
+    boardpn = ""
+    boardrev = ""
+    boardpndata = call_ipmitool("{} 0x11 0x0 0xaa 0x0 0x09 {}".format(log_preamble, ending))
+    
+    databytes = boardpndata.split(" ")
+    if (len(databytes) == 0):
+        return "Unknown", "Unknown"
+    for ch in databytes[8:15]:
+        boardpn += chr(int(ch, 16))
+    for ch in databytes [15:-1]:
+        boardrev += chr(int(ch, 16))
+        
+    return boardpn.strip(), boardrev.strip()
+
+
 def CMGetConfig(args):
+    # Get the FRU CM Board PN/Rev to determine the chassis type and HW level (UT/PT/ST)
+    boardpn, boardrev = BoardPNAndRev()
+    platname = ""
+    
+    verbose("Chassis Board PN = {}, rev = {}".format(boardpn, boardrev))
+    if (boardpn == CMHubblePN):
+        CMConfigSettings = CMHubbleConfigSettings
+        platname = "Hubble C6400"
+        verbose("Using Hubble Config Settings")
+    elif (boardpn == CMLkAustinPN):
+        CMConfigSettings = CMLkAustinConfigSettings
+        platname = "Lake Austin C6600"
+        verbose("Using Lake Austin Config Settings")
+    else:
+        return "CM Board PN {} is not implemented.".format(boardpn)
+
     # get all the config items, don't care about the args
     stdout = call_ipmitool("{} 0xa0 0x0 0xff {}".format(config_preamble, ending))
     
@@ -377,7 +586,7 @@ def CMGetConfig(args):
         return "Unsuccessful reponse: {} = {} ".format(outbytes[completion_code_idx], completion)
     
     # now parse the config data
-    output = "CM Config Settings:\n"
+    output = "CM Config Settings: Board PN {} Platform Name {}\n".format(boardpn, platname)
     settingscount = int(outbytes[8], 16)
     position = 9  # byte after the number of properties
     for id in range(1, settingscount + 1):
@@ -407,8 +616,51 @@ def CMGetConfig(args):
     #end for
     return output
     
+def CMGetDeviceId(args):
+    """ Example response
+    20 1c c4 70 00 01 00 11 
+    <BMC addr> <NetFN 0x7> ck1> <CMaddr> <rslun> <cmd> <CC> <devid 0x11 - 17> 
+    00 03 17 02 00 a2
+    <dev rev> <fw maj> <fw min> <IPMI ver> <Add DEv Spt bitflags> 
+    02 00 00 00 00 00 00 00 be
+    <Mf id 0, Mf id 1, mf id 2> <prodid 0, prodid 1> <auxfw 0, auxfw 1, auxfw 2, auxfw3> 
+    """
+    # get all the config items, don't care about the args
+    stdout = call_ipmitool("{} 0x1 {}".format(app_preamble, ending))
+    
+    if (use_raw_output):
+        return stdout
+
+    outbytes = stdout.split()
+    if (len(outbytes) == 0):
+        # bad connection, message in stderr
+        return "Ipmitool Error.  Verify HOST, user, and password are correct"
+   
+    # check the completion code
+    completion = CMChasCfgCompCodes.get(outbytes[completion_code_idx], 'Unknown response')
+    if (not (completion == 'Success')):
+        return "Unsuccessful reponse: {} = {} ".format(outbytes[completion_code_idx], completion)
+        
+    # now parse the data
+    output = "Device ID Info:\n"
+    
+    pos = SendMsgCmdResponseOffset # first byte of response data
+    value = ""
+    fmtline = "{:22} = {:8}\n"
+    while (pos < (len(outbytes) - 1)):
+        cinfo = CMDeviceIDInfo.get(pos, None)
+        if (not cinfo):
+            # for the undefined ones
+            output += fmtline.format("Unknown", outbytes[pos])
+            pos += 1
+        else:
+            value = cinfo.get_value(outbytes[pos:pos+cinfo.len])
+            output += fmtline.format(cinfo.name, value)
+            pos += cinfo.len
+    return output
+
 def CMGetPasscode(arglist):
-    cmdhelp = CMCommandHelpDetailed['GetPasscode']
+    cmdhelp = CMCommandHelpDetailed['GetPasscode'.lower()]
     key = ""
     if (arglist and (len(arglist) > 0)):
         for arg in arglist:
@@ -451,7 +703,7 @@ def CMGetPasscode(arglist):
     
 # Get ALL hidden config values
 def CMGetHiddenConfig(arglist):
-    cmdhelp = CMCommandHelpDetailed['GetHiddenConfig']
+    cmdhelp = CMCommandHelpDetailed['GetHiddenConfig'.lower()]
     key = ""
     passcode = ""
     if (arglist and (len(arglist) > 0)):
@@ -522,7 +774,7 @@ def CMGetHiddenConfig(arglist):
     return output
 
 def CMGetLog(arglist):
-    cmdhelp = CMCommandHelpDetailed['GetLog']
+    cmdhelp = CMCommandHelpDetailed['GetLog'.lower()]
     offset = 0
     tail = 0
     outfilename = ""
@@ -548,7 +800,9 @@ def CMGetLog(arglist):
         # bad connection, message in stderr
         return "Ipmitool Error.  Verify HOST, user, and password are correct"
     
-    log_cnt = (int((stdout[25:27]) + (stdout[22:24]),16)) - CMLogOffsetIncrement  # subtract one line to suppress the beginning of the circular log
+    log_cnt = (int((stdout[25:27]) + (stdout[22:24]),16))
+    if ((log_cnt / CMLogOffsetIncrement) >= CMLogMaxLines):
+        log_cnt -= CMLogOffsetIncrement   # subtract one line to suppress the beginning of the circular log if the log is full
     verbose("Got {} log bytes, {} lines of {} bytes.".format(log_cnt, log_cnt / CMLogOffsetIncrement, CMLogOffsetIncrement))
     if (tail):
         offset = log_cnt - tail
@@ -581,7 +835,7 @@ def CMGetLog(arglist):
     return ""
 
 def CMSetConfig(arglist):
-    cmdhelp = CMCommandHelpDetailed['SetConfig']
+    cmdhelp = CMCommandHelpDetailed['SetConfig'.lower()]
     property = None
     propval = None
     errmsg = ""
@@ -643,7 +897,7 @@ def CMSetConfig(arglist):
     return completion
     
 def CMSetHiddenConfig(arglist):
-    cmdhelp = CMCommandHelpDetailed['SetHiddenConfig']
+    cmdhelp = CMCommandHelpDetailed['SetHiddenConfig'.lower()]
     key = ""
     passcode = ""
     property = None
@@ -719,8 +973,50 @@ def CMSetHiddenConfig(arglist):
 
     return (completion)
     
+def CMGetPSUInfo(arglist):
+    """  Example output with 2 PSUs
+    01 d9 08 00 00 02 00 1d 00 00 00
+    """
+    # don't care what args are
+    stdout = call_ipmitool('0x30 0x1f')
+    
+    if (use_raw_output):
+        return stdout
+
+    outbytes = stdout.split()
+    # check the completion code.  first byte but only if error
+    if (len(outbytes) == 0):
+        # bad connection, message in stderr
+        return "Ipmitool Error.  Verify HOST, user, and password are correct"
+        
+    if ((len(outbytes) == 1) and (not (outbytes[0] == '01'))):  # there was an error completion code
+        completion = CMChasCfgCompCodes.get(outbytes[0], 'Unknown response')
+        return "Unsuccessful reponse: {} = {} ".format(outbytes[0], completion)
+        
+    # now parse the data
+    output = "Get PSU Info:\n"
+    
+    bytecnt = int(outbytes[2], 16)
+    pos = 3 # next byte after the byte count
+    value = ""
+    fmtline = "{:22} = {:8}\n"
+    while (pos < bytecnt + 3):
+        cinfo = CMPSUInfo.get(pos, None)
+        if (not cinfo):
+            # for the undefined ones
+            output += fmtline.format("Unknown", outbytes[pos])
+            pos += 1
+        else:
+            value = cinfo.get_value(outbytes[pos:pos+cinfo.len])
+            output += fmtline.format(cinfo.name, value)
+            pos += cinfo.len
+            if (cinfo.len > 2):
+                output += "Invalid value definition: {}  Length: {}\n".format(cinfo.name, cinfo.len)
+                pos += 1
+    return output   
+
 def CMPowerCycle(arglist):
-    cmdhelp = CMCommandHelpDetailed['PowerCycle']
+    cmdhelp = CMCommandHelpDetailed['PowerCycle'.lower()]
     errmsg = ""
     target = 0
     if (arglist and (len(arglist) > 0)):
@@ -736,7 +1032,7 @@ def CMPowerCycle(arglist):
     verbose("PowerCycle will be sent to target {}".format(target))
     # CMd = 0x02    0x6 0x34 0x45 0x70 0x00 0xc8 0x20 0x0 0x02 0x02 0xd8
     tgtbyte = hex((target << 4) | 2)
-    command = "{} 0x02 {} {}".format(powercycle_preamble, tgtbyte, ending)
+    command = "{} 0x02 {} {}".format(chassis_preamble, tgtbyte, ending)
     stdout = call_ipmitool(command)
 
     if (use_raw_output):
@@ -759,7 +1055,7 @@ def CMCommandHelpFunc(arglist):
     if (arglist and (len(arglist) > 0)):
         # list details for each named command
         for arg in arglist:
-            output += arg + CMCommandHelpDetailed.get(arg, "\n{} is an unknown command".format(arg))    
+            output += arg + CMCommandHelpDetailed.get(arg.lower(), "\n{} is an unknown command".format(arg))    
     else:
         # list all commands if non specified
         for cmdname in list(CMCommandHelpDetailed):
@@ -768,61 +1064,73 @@ def CMCommandHelpFunc(arglist):
     
 # Commands lookup tables.  Must define these AFTER the function defs
 CMCommands = {
-    'GetVersion': CMGetVersion,
-    'GetConfig': CMGetConfig,
-    'GetPasscode': CMGetPasscode,
-    'GetHiddenConfig': CMGetHiddenConfig,
-    'GetLog': CMGetLog,
-    'SetConfig': CMSetConfig,
-    'SetHiddenConfig': CMSetHiddenConfig,
-    'PowerCycle': CMPowerCycle,
-    'Help': CMCommandHelpFunc,
+    'getversion': CMGetVersion,
+    'getsensorinfo': CMGetSensorInfo,
+    'getconfig': CMGetConfig,
+    'getdeviceid': CMGetDeviceId,
+    'getpasscode': CMGetPasscode,
+    'gethiddenconfig': CMGetHiddenConfig,
+    'getlog': CMGetLog,
+    'setconfig': CMSetConfig,
+    'sethiddenconfig': CMSetHiddenConfig,
+    'getpsuinfo': CMGetPSUInfo,
+    'powercycle': CMPowerCycle,
+    'help': CMCommandHelpFunc,
 }
 
 CMCommandHelp = {
-    'GetVersion': 'Gets the CM Config Info.',
-    'GetConfig': 'Lists the CM Configuration Properties.',
-    'GetPasscode': 'Gets the Passcode for Hidden Config Operations. Use -a help for arguments',
-    'GetHiddenConfig': 'Lists the Hidden Configuration Properties. Use -a help for arguments',
-    'GetLog': 'Lists the log entries from the CM EEPROM memory. Use -a help for arguments.',
-    'SetConfig': 'Set ONE CM Config property. Use -a help for arguments.',
-    'SetHiddenConfig':'Set ONE CM Hidden Config Property. Use -a help for arguments.',
-    'PowerCycle':'Send a powercycle command to the Chassis or a single Sled. Use -a help for arguments.',
-    'Help': 'List Detailed Command help information',
+    'getversion': 'Gets the CM Config Info.',
+    'getsensorinfo': "Gets the data from last Set Sensor Info, fan speeds not implemented yet.",
+    'getconfig': 'Lists the CM Configuration Properties.',
+    'getdeviceid': 'Gets full CM info.', 
+    'getpasscode': 'Gets the Passcode for Hidden Config Operations. Use -a help for arguments',
+    'gethiddenconfig': 'Lists the Hidden Configuration Properties. Use -a help for arguments',
+    'getlog': 'Lists the log entries from the CM EEPROM memory. Use -a help for arguments.',
+    'setconfig': 'Set ONE CM Config property. Use -a help for arguments.',
+    'sethiddenconfig':'Set ONE CM Hidden Config Property. Use -a help for arguments.',
+    'getpsuinfo':'Get the current PSU mismatch status, redundancy configuration, and power output.',
+    'powercycle':'Send a powercycle command to the Chassis or a single Sled. Use -a help for arguments.',
+    'help': 'List Detailed Command help information',
 }
 
 CMCommandHelpDetailed = {
-    'GetVersion': """
+    'getversion': """
 The GetVersion command does not take any extra arguments.""",
-    'GetConfig': """
+    'getsensorinfo': """
+The GetSensorInfo command does not take any arguments.""",
+    'getconfig': """
 The GetConfig command does not take any extra arguments.""",
-    'GetPasscode': """
+    'getdeviceid' : """
+The GetDeviceId command does not take any extra arguments.""",
+    'getpasscode': """
 The GetPasscode command takes the following required named arguments (with -a):
     -a key=<str>      - The 8-byte static key in ascii text.""",
-    'GetHiddenConfig': """
+    'gethiddenconfig': """
 The GetHiddenConfig command takes the following required named arguments (with -a):
     -a key=<str>      - The 8-byte static key in ascii text.
     -a passcode=<str> - The 8-byte passcode copied from GetPasscode output.""",
-    'GetLog': """
+    'getlog': """
 The GetLog command takes the following optional named arguments (with -a):
     -a offset=<int> - Start output <int> lines from the start of the log.
     -a tail=<int>   - Start output <int> lines from the end of the log.
     -a outfile=<filename> - Write to the filename specified.""",
-    'SetConfig': """
+    'setconfig': """
 The SetConfig command takes the following required named arguments (with -a):
     -a <propertyname>=<value> - set the given property by name to the value.  
         Use the GetConfig command to see the list of property names.""",
-    'SetHiddenConfig': """
+    'sethiddenconfig': """
 The SetHiddenConfig command takes the following required named arguments (with -a):
     -a key=<str>      - The 8-byte static key in ascii text.
     -a passcode=<str> - The 8-byte passcode copied from GetPasscode output.
     -a <propertyname>=<value> - set the given property by name to the value.  
         Use the GetHiddenConfig command to see the list of property names.""",
-    'PowerCycle':"""
+    'getpsuinfo':"""
+The GetPSUInfo command does not take any extra arguments.""",
+    'powercycle':"""
 The PowerCycle command takes the following named arguments (with -a):
     -a target=<id> - Send the PowerCycle command to the target. If not defined, id = 0. 
     If id==0, powercycle the chassis, else powercycle the sled number <id>.  <id> must be 0-4.""",
-    'Help': """
+    'help': """
 The Help command may take arguments with -a to name specific commands.
     Ex:    -a GetVersion -a GetConfig
     If no args are specified it will list command details for all current commands.""",
@@ -845,7 +1153,14 @@ def check_ipmitool():
     return True
     
 def call_ipmitool(arguments):
-    cmdline = "ipmitool -I lanplus -H {} -U {} -P {} raw {}".format(args.host, args.user, args.password, arguments)
+    if (args.wmi):
+        cmdline = "ipmitool -I wmi raw {}".format(arguments)
+    elif (args.host):
+        cmdline = "ipmitool -I lanplus -H {} -U {} -P {} raw {}".format(args.host, args.user, args.password, arguments)
+    else:
+        print("If --wmi is not specified then the --host parameter is required")
+        return ""
+        
     verbose("ipmi cmd = {}".format(cmdline))
     child = subprocess.Popen(cmdline,cwd='.',shell=True,
         stdout=subprocess.PIPE,stderr=subprocess.PIPE, stdin=subprocess.PIPE)
@@ -856,7 +1171,7 @@ def call_ipmitool(arguments):
     return ""  # no return bytes means a failed connection
 
 def CallCommand(command, arglist):
-    func = CMCommands.get(command, None)
+    func = CMCommands.get(command.lower(), None)
     result = ""
     if func:
         result = func(arglist)
@@ -874,7 +1189,8 @@ def verbose(*args):
 
 if __name__ == "__main__":
     PARSER = argparse.ArgumentParser(description=__doc__)
-    PARSER.add_argument('-H', '--host',  required=True, help="The iDrac host to send the IPMI command to.")
+    PARSER.add_argument('-W', '--wmi',  action='store_true', default=False, help="Use the WMI interface to send the command. Overrides --host.")
+    PARSER.add_argument('-H', '--host', help="Use the lanplus interface and send the command to the given iDrac host name/IP.")
     PARSER.add_argument('-u', '--user',  default='root', help="The user name to connect with.")
     PARSER.add_argument('-p', '--password', default='calvin', help="The password to connect with.")
     PARSER.add_argument('-r', '--raw_output', action='store_true', default=False, help="Print the hex codes from the response without interpretation.")
@@ -900,7 +1216,7 @@ if __name__ == "__main__":
     if (args.verbose):
         print_verbose = True
         
-    verbose("host = {}  user = {}  password = {}  command = {}  args = {}".format(args.host, args.user, args.password, args.command, args.arg))
+    verbose("wmi = {} host = {}  user = {}  password = {}  command = {}  args = {}".format(args.wmi, args.host, args.user, args.password, args.command, args.arg))
         
     print(CallCommand(args.command, args.arg))
     sys.exit(0)
