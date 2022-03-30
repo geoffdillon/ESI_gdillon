@@ -55,9 +55,11 @@ CMLogMaxLines = 999
 # used to identify supported Chassis
 CMBoardPN = {
     '0R8Y73': "Hubble",
+    '0W3N19': "Hubble",
     '05V6V5': "Lake Austin",
 }
 CMHubblePN = "0R8Y73"
+CMHubblePN1 = "0W3N19"
 CMLkAustinPN = "05V6V5"
 
 PlainCmdResponseOffset = 3  # number of response header bytes for a 0x30 0x?? type command
@@ -227,9 +229,13 @@ fanctlenum = {
 }
 
 fanctlschemeenum = {
-    '00': 'Emergency',
+    '00': 'FixedByUser',
+    '02': 'Emergency',
     '04': 'Openloop',
-    '08': 'Closedloop'
+    '08': 'Closedloop',
+    '0b': 'Closed + Fixed',
+    '0c': 'Closed + Open',
+    
 }
 sledconfenum = {2: 'Half-width', 4: 'Double-high half-width'}
 redpsuenum = {0: '2+0 Nonredundant', 1: '1+1 Redundant'}
@@ -609,13 +615,14 @@ def CMGetSensorInfo(args):
     pos = 3 # next byte after the byte count
     value = ""
     fmtline = "{:22} = {:8}\n"
-    while (pos < bytecnt + 3):
+    while (pos < len(outbytes)):
         cinfo = CMSensorInfo.get(pos, None)
         if (not cinfo):
             # for the undefined ones
             output += fmtline.format("Unknown", outbytes[pos])
             pos += 1
         else:
+            verbose("GetSensorInfo: pos = {}".format(pos))
             value = cinfo.get_value(outbytes[pos:pos+cinfo.len])
             output += fmtline.format(cinfo.name, value)
             pos += cinfo.len
@@ -652,11 +659,11 @@ def CMGetConfig(args, ini_output=False):
     
     print(progressstring, end='\r')
     verbose("Chassis Board PN = {}, rev = {}".format(boardpn, boardrev))
-    if (boardpn == CMHubblePN):
+    if (boardpn in (CMHubblePN, CMHubblePN1)):
         CMConfigSettings = CMHubbleConfigSettings
         platname = "Hubble C6400"
         verbose("Using Hubble Config Settings")
-    elif (boardpn == CMLkAustinPN):
+    elif (boardpn in (CMLkAustinPN)):
         CMConfigSettings = CMLkAustinConfigSettings
         platname = "Lake Austin C6600"
         verbose("Using Lake Austin Config Settings")
@@ -951,11 +958,11 @@ def CMSetConfig(arglist):
     boardpn, boardrev = BoardPNAndRev()
     platname = ""
     verbose("Chassis Board PN = {}, rev = {}".format(boardpn, boardrev))
-    if (boardpn == CMHubblePN):
+    if (boardpn in (CMHubblePN, CMHubblePN1)):
         CMConfigSettings = CMHubbleConfigSettings
         platname = "Hubble C6400"
         verbose("Using Hubble Config Settings")
-    elif (boardpn == CMLkAustinPN):
+    elif (boardpn in (CMLkAustinPN)):
         CMConfigSettings = CMLkAustinConfigSettings
         platname = "Lake Austin C6600"
         verbose("Using Lake Austin Config Settings")
@@ -1032,11 +1039,11 @@ def CMGetFRU(args, ini_output = False):
     platname = ""
     
     verbose("Chassis Board PN = {}, rev = {}".format(boardpn, boardrev))
-    if (boardpn == CMHubblePN):
+    if (boardpn in (CMHubblePN, CMHubblePN1)):
         CMFRUSettings = CMHubbleFRUSettings
         platname = "Hubble C6400"
         verbose("Using Hubble FRU Settings")
-    elif (boardpn == CMLkAustinPN):
+    elif (boardpn in (CMLkAustinPN)):
         CMFRUSettings = CMAMCFRUSettings
         platname = "Lake Austin C6600"
         verbose("Using Lake Austin FRU Settings")
