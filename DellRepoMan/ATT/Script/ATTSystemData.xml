@@ -23,8 +23,12 @@
 		Calculate the hashMD5 using powershell cmdlet "(get-filehash -algorithm MD5 -path invcol....).Hash.tolower().trim()"
 		dateTime and releaseDate are irrelevant but must be valid formats so just keep the same values as below.
 	-->
-	<InventoryComponent schemaVersion="2.0" releaseID="DJNVP" hashMD5="d316cc7de2955cf132f3132cc12d2710" path="FOLDER05474340M/1/invcol_DJNVP_LN64_19_04_200_472_A00" dateTime="2018-07-09T10:50:31Z" releaseDate="July 09, 2018" vendorVersion="19.04.200.472" dellVersion="A00" osCode="LIN64" />
-	<InventoryComponent schemaVersion="2.0" releaseID="DJNVP" hashMD5="ce94265581b1548be21c2fe6871e9f28" path="FOLDER05483427M/1/invcol_DJNVP_WIN64_19_04_200_472_A00.exe" dateTime="2018-07-09T10:50:31Z" releaseDate="July 09, 2018" vendorVersion="19.04.200.472" dellVersion="A00" osCode="WIN64" />
+    12/30/2019 12:30:33 AM CST  2019-12-30T18:30:33Z
+	<InventoryComponent schemaVersion="2.0" releaseID="HW0HN" hashMD5="22f67b5ebc9953670cb1dbdf079f8b27" path="FOLDER06018516M/1/invcol_HW0HN_LN64_20_02_00_771_A00" dateTime="2019-12-30T18:30:33Z" releaseDate="Dec 30, 2019" vendorVersion="19.04.200.472" dellVersion="A00" osCode="LIN64" />
+	<InventoryComponent schemaVersion="2.0" releaseID="HW0HN" hashMD5="60d563bd437618ddc02471c5176abc3c" path="FOLDER06018518M/1/invcol_HW0HN_WIN64_20_02_00_771_A00.EXE" dateTime="2019-12-30T18:30:33Z" releaseDate="Dec 30, 2019" vendorVersion="19.04.200.472" dellVersion="A00" osCode="WIN64" />
+
+	<!-- InventoryComponent schemaVersion="2.0" releaseID="DJNVP" hashMD5="d316cc7de2955cf132f3132cc12d2710" path="FOLDER05474340M/1/invcol_DJNVP_LN64_19_04_200_472_A00" dateTime="2018-07-09T10:50:31Z" releaseDate="July 09, 2018" vendorVersion="19.04.200.472" dellVersion="A00" osCode="LIN64" />
+	<InventoryComponent schemaVersion="2.0" releaseID="DJNVP" hashMD5="ce94265581b1548be21c2fe6871e9f28" path="FOLDER05483427M/1/invcol_DJNVP_WIN64_19_04_200_472_A00.exe" dateTime="2018-07-09T10:50:31Z" releaseDate="July 09, 2018" vendorVersion="19.04.200.472" dellVersion="A00" osCode="WIN64" / -->
 	<!-- <InventoryComponent schemaVersion="2.0" releaseID="VPJT7" hashMD5="708e3774b98db772566007a092bbd218" path="FOLDER05077911M/1/invcol_VPJT7_LN64_18_06_000_248_A00" dateTime="2018-07-09T10:50:31Z" releaseDate="July 09, 2018" vendorVersion="18.06.000.248" dellVersion="A00" osCode="LIN64" /> -->
 	
 	<!-- List all of the Systems that will be supported with Linux updates for custom catalogs. 

@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # Geoff Dillon geoff_dillon@dell.com
-# Copyright Dell, Inc 2022
+# Copyright Dell, Inc 2023
 # FOR INTERNAL USE ONLY.  DO NOT distribute to customers or partners/vendors.
 # This script automates certain IPMI raw commands to the C6400/C6600 CM through the iDRAC.
 # REQUIRES python 3.8 or higher
@@ -54,13 +54,12 @@ CMLogMaxLines = 999
 
 # used to identify supported Chassis
 CMBoardPN = {
-    '0R8Y73': "Hubble",
-    '0W3N19': "Hubble",
-    '05V6V5': "Lake Austin",
+    'Hubble': ['0R8Y73', '0W3N19', '07NN9G'],
+    'Lake Austin': ['05V6V5'],
 }
-CMHubblePN = "0R8Y73"
-CMHubblePN1 = "0W3N19"
-CMLkAustinPN = "05V6V5"
+SptChassisHubble = 'Hubble'
+SptChassisLkAustin = 'Lake Austin'
+
 
 PlainCmdResponseOffset = 3  # number of response header bytes for a 0x30 0x?? type command
 SendMsgCmdResponseOffset = 7  # number of resp header bytes for a Send msg command
@@ -216,6 +215,7 @@ LABPEnum = {
     0x0025: '4x2.5 SAS/SATA Backplane (0x0025)',
     0x0045: '4x2.5 NVME Backplane (0x0045)',
     0x0185: '8xEDSFF NVME Backplane (0x0185)',
+    0x0385: 'Universal SATA/NVME Backplane (0x0385)',
 }
 
 # enumeration dictionaries used for displaying human-readable output
@@ -268,19 +268,24 @@ bpenum = {
 }
 
 sledcfgenum = {
-    '00': 'Unknown',
-    '01': 'FullWidth',
-    '02': 'HalfWidth',
-    '03': 'ThirdWidth',
-    '04': 'DblHighHalf',
-    '05': 'G5.5 Half',
-    '06': 'G5.5 Full',
+    0x0: 'Unknown',
+    0x1: 'FullWidth',
+    0x2: 'HalfWidth',
+    0x3: 'ThirdWidth',
+    0x4: 'DblHighHalf',
+    0x5: 'G5.5 Half',
+    0x6: 'G5.5 Full',
 }
-chassisenum = {
-    '00': 'Not Set (0)',
-    '1c': 'Mercury (0x1c)',
-    '56': 'Roadster (0x56)',
-    '57': 'Steeda (0x57)',
+hubblechassisenum = {
+    0x00: 'Not Set (0)',
+    0x1c: 'Mercury (0x1c)',
+    0x56: 'Roadster (0x56)',
+    0x57: 'Steeda (0x57)',
+}
+lkaustinchassisenum = {
+    0x00: 'Not Set (0)',
+    0x65: 'Marine Creek (0x65)',
+    0xC4: 'Buffalo Creek ((0xC4)',
 }
 
 fwupdatestateenum = {
@@ -435,11 +440,11 @@ CMHubbleConfigSettings = {
 
 CMLkAustinConfigSettings = CMHubbleConfigSettings.copy()
 CMLkAustinConfigSettings[4] = CMConfigSet("FanTypeConfig", 4, 1, fantypecfgenum, 0x14, False)
-CMLkAustinConfigSettings[9] = CMConfigSet("ReserveByte1", 9, 1, None, 0, False)
+CMLkAustinConfigSettings[9] = CMConfigSet("GridChassisICLEnable", 9, 1, enabdisab, 0, False)
 CMLkAustinConfigSettings[10] = CMConfigSet("ReserveByte2", 10, 1, None, 0, False)
 CMLkAustinConfigSettings[11] = CMConfigSet("ReserveByte3", 11, 1, None, 0, False)
-CMLkAustinConfigSettings[18] = CMConfigSet("ReservedWord1", 18, 2, None, 0, False)
-CMLkAustinConfigSettings[19] = CMConfigSet("ReservedWord2", 19, 2, None, 0, False)
+CMLkAustinConfigSettings[18] = CMConfigSet("GridICL", 18, 2, None, 0, False)
+CMLkAustinConfigSettings[19] = CMConfigSet("ChassisICL", 19, 2, None, 0, False)
 CMLkAustinConfigSettings[20] = CMConfigSet("ReservedWord3", 20, 2, None, 0, False)
 CMLkAustinConfigSettings[21] = CMConfigSet("ReservedWord4", 21, 2, None, 0, False)
 CMLkAustinConfigSettings[28] = CMConfigSet("BpId", 28, 2, LABPEnum, 0, True)
@@ -462,7 +467,7 @@ CMHubbleFRUSettings = {
     0x143: CMFRUSet('ChassisAssetTag', 0x143, 20, ''),
 }
 
-CMAMCFRUSettings = {
+CMLkAustinFRUSettings = {
     0x54: CMFRUSet('ChassisPartNumber', 0x54, 9, '0KJDD7X01'),
     0x5E: CMFRUSet('ChassisSerialNumber', 0x5E, 9, ''),
     0x77: CMFRUSet('ChassisBoardManufacturer', 0x77, 32, 'Dell'),
@@ -479,13 +484,24 @@ CMAMCFRUSettings = {
 }
 
 
-CMHiddenSettings = {
-    1: CMConfigSet('ChassisID', 1, 1, chassisenum, 0x1C, True),
+CMHubbleHiddenSettings = {
+    1: CMConfigSet('ChassisID', 1, 1, hubblechassisenum, 0x1C, True),
     2: CMConfigSet('AllowFWDowngrade', 2, 1, enabdisab, 0, True),
     3: CMConfigSet('Connector_Max_Threshold', 3, 2, {}, 0, False),
     4: CMConfigSet('GoldenChassis', 4, 1, enabdisab, 0, True),
     5: CMConfigSet('Fixed_FTB', 5, 1, enabdisab, 0, True),
+    6: CMConfigSet('Manifest_Index_Number', 6, 1, None, 0, True),
 }
+
+CMLkAustinHiddenSettings = {
+    1: CMConfigSet('ChassisID', 1, 1, lkaustinchassisenum, 0x65, True),
+    2: CMConfigSet('AllowFWDowngrade', 2, 1, enabdisab, 0, True),
+    3: CMConfigSet('Connector_Max_Threshold', 3, 2, {}, 0, False),
+    4: CMConfigSet('GoldenChassis', 4, 1, enabdisab, 0, True),
+    5: CMConfigSet('Fixed_FTB', 5, 1, enabdisab, 0, True),
+    6: CMConfigSet('Manifest_Index_Number', 6, 1, None, 0, True),
+}
+
 
 # completion code lookup tables for select commands
 CMChasCfgCompCodes = {
@@ -504,10 +520,10 @@ CMConfigCompCodes = {
 
 
 # search the list of Hidden Config Properties for the given name.
-def FindHiddenConfigByName(name):
-    for id in CMHiddenSettings:
-        if (CMHiddenSettings[id].name.lower() == name.lower()):
-            return CMHiddenSettings[id]
+def FindHiddenConfigByName(HiddenSettings, name):
+    for id in HiddenSettings:
+        if (HiddenSettings[id].name.lower() == name.lower()):
+            return HiddenSettings[id]
     return None
     
 # search the list of Config Properties for the given name.
@@ -659,11 +675,11 @@ def CMGetConfig(args, ini_output=False):
     
     print(progressstring, end='\r')
     verbose("Chassis Board PN = {}, rev = {}".format(boardpn, boardrev))
-    if (boardpn in (CMHubblePN, CMHubblePN1)):
+    if (boardpn in CMBoardPN[SptChassisHubble]):
         CMConfigSettings = CMHubbleConfigSettings
         platname = "Hubble C6400"
         verbose("Using Hubble Config Settings")
-    elif (boardpn in (CMLkAustinPN)):
+    elif (boardpn in CMBoardPN[SptChassisLkAustin]):
         CMConfigSettings = CMLkAustinConfigSettings
         platname = "Lake Austin C6600"
         verbose("Using Lake Austin Config Settings")
@@ -821,6 +837,21 @@ def CMGetHiddenConfig(arglist):
     cmdhelp = CMCommandHelpDetailed['GetHiddenConfig'.lower()]
     key = ""
     passcode = ""
+    boardpn, boardrev = BoardPNAndRev()
+    platname = ""
+    
+    verbose("Chassis Board PN = {}, rev = {}".format(boardpn, boardrev))
+    if (boardpn in CMBoardPN[SptChassisHubble]):
+        CMHiddenSettings = CMHubbleHiddenSettings
+        platname = "Hubble C6400"
+        verbose("Using Hubble Hidden Config Settings")
+    elif (boardpn in CMBoardPN[SptChassisLkAustin]):
+        CMHiddenSettings = CMLkAustinHiddenSettings
+        platname = "Lake Austin C6600"
+        verbose("Using Lake Austin Hiden Config Settings")
+    else:
+        return "CM Board PN {} is not implemented.".format(boardpn)
+    
     if (arglist and (len(arglist) > 0)):
         for arg in arglist:
             if ('key=' in arg):
@@ -882,7 +913,7 @@ def CMGetHiddenConfig(arglist):
             else:
                 value = ""
             #end if
-            position += CMConfigSettings[id].len
+            position += CMHiddenSettings[id].len
             output += "{:22} = {:8}\n".format(CMHiddenSettings[id].name, value)
         #end if
     #end for
@@ -946,9 +977,93 @@ def CMGetLog(arglist):
         if (outfile):
             outfile.write(ascii_string + '\n')
         offset += CMLogOffsetIncrement
-
+    
+    if (outfile):
+        outfile.close()
+        
     return ""
 
+# used by the ParseLog funbction to process the data from string containing 0xXX bytes to actual ASCII data
+def ParseLogLine(line):
+    # need to cut off the first 2 bytes which is just the number of bytes returned
+    leadbytes = '0x00 0x40'
+    firstcut = line.find(leadbytes)
+    if (firstcut > -1):
+        firstcut = len(leadbytes)
+    # take the slice after and remove '0x' from all
+    dataline = line[(firstcut+1):].replace('0x','')
+    try:
+        output = bytes.fromhex(dataline).decode()
+        print(output)
+    except:
+        print("can't process this line to ascii")
+        return ""
+    return output + '\n'
+        
+def CMParseLog(arglist):
+    cmdhelp = CMCommandHelpDetailed['ParseLog'.lower()]
+    logfile = None
+    outfile = None
+    errmsg = ""
+    outfilename = ""
+    logfilename = ""
+    if (arglist and (len(arglist) >= 1)):
+        for arg in arglist:
+            if ('logfile=' in arg):
+                value = arg.split('=')[1]
+                logfilename = value
+            elif ('outfile=' in arg):
+                value = arg.split('=')[1]
+                outfilename = value
+            else:
+                print("Invalid Argument: {}".format(arg.split('=')[0]))
+                print(cmdhelp)
+                return ""
+                
+    if (logfilename):
+        try:
+            logfile = open(logfilename, 'r')
+        except:
+            print("Unable to open logfile {} for reading.".format(logfilename))
+            return ""
+    else:
+        print("The logfile parameter is required for this command.")
+        return ""
+    
+    if (outfilename):
+        try:
+            outfile = open(outfilename,  'w+')
+        except:
+            print("Unable to open output file  {} for writing".format(outputfilename))
+            return ""   
+    line = logfile.readline()
+    section = ''
+    while (line):
+        # build a section with the lines up to the one that is only '\n'
+        if (line.startswith('Sending') or line.startswith('Sent') or line.startswith('Response') or line.startswith('Data')):
+            section = ''
+        elif (line.startswith('scbmctestfunc: Error')):
+            outfile.write('Line missing due to comm error\n')
+            section = ''
+        elif (line != '\n'):
+            section += line.strip() + ' '
+        else:
+            # parse the section as one output line
+            if (section):
+                outfile.write(ParseLogLine(section))
+                section = ''
+        line = logfile.readline()
+    if (section):
+        #write the last bit of data out
+        outfile.write(ParseLogLine(section))
+        
+    #close out
+    if (logfile):
+        logfile.close()
+    if (outfile):
+        outfile.close()
+    return ""
+    
 def CMSetConfig(arglist):
     cmdhelp = CMCommandHelpDetailed['SetConfig'.lower()]
     property = None
@@ -958,11 +1073,11 @@ def CMSetConfig(arglist):
     boardpn, boardrev = BoardPNAndRev()
     platname = ""
     verbose("Chassis Board PN = {}, rev = {}".format(boardpn, boardrev))
-    if (boardpn in (CMHubblePN, CMHubblePN1)):
+    if (boardpn in CMBoardPN[SptChassisHubble]):
         CMConfigSettings = CMHubbleConfigSettings
         platname = "Hubble C6400"
         verbose("Using Hubble Config Settings")
-    elif (boardpn in (CMLkAustinPN)):
+    elif (boardpn in CMBoardPN[SptChassisLkAustin]):
         CMConfigSettings = CMLkAustinConfigSettings
         platname = "Lake Austin C6600"
         verbose("Using Lake Austin Config Settings")
@@ -1039,16 +1154,16 @@ def CMGetFRU(args, ini_output = False):
     platname = ""
     
     verbose("Chassis Board PN = {}, rev = {}".format(boardpn, boardrev))
-    if (boardpn in (CMHubblePN, CMHubblePN1)):
+    if (boardpn in CMBoardPN[SptChassisHubble]):
         CMFRUSettings = CMHubbleFRUSettings
         platname = "Hubble C6400"
-        verbose("Using Hubble FRU Settings")
-    elif (boardpn in (CMLkAustinPN)):
-        CMFRUSettings = CMAMCFRUSettings
+        verbose("Using Hubble Config Settings")
+    elif (boardpn in CMBoardPN[SptChassisLkAustin]):
+        CMFRUSettings = CMLkAustinFRUSettings
         platname = "Lake Austin C6600"
-        verbose("Using Lake Austin FRU Settings")
+        verbose("Using Lake Austin Config Settings")
     else:
-        return "CM Board PN {} is not implemented.".format(boardpn)    
+        return "CM Board PN {} is not implemented.".format(boardpn)
     
     progressstring += '.'
     print(progressstring, end='\r')
@@ -1257,6 +1372,22 @@ def CMSetHiddenConfig(arglist):
     cmdhelp = CMCommandHelpDetailed['SetHiddenConfig'.lower()]
     key = ""
     passcode = ""
+    
+    boardpn, boardrev = BoardPNAndRev()
+    platname = ""
+    
+    verbose("Chassis Board PN = {}, rev = {}".format(boardpn, boardrev))
+    if (boardpn in CMBoardPN[SptChassisHubble]):
+        CMHiddenSettings = CMHubbleHiddenSettings
+        platname = "Hubble C6400"
+        verbose("Using Hubble Hidden Config Settings")
+    elif (boardpn in CMBoardPN[SptChassisLkAustin]):
+        CMHiddenSettings = CMLkAustinHiddenSettings
+        platname = "Lake Austin C6600"
+        verbose("Using Lake Austin Hiden Config Settings")
+    else:
+        return "CM Board PN {} is not implemented.".format(boardpn)
+
     property = None
     propval = None
     if (arglist and (len(arglist) > 0)):
@@ -1272,7 +1403,7 @@ def CMSetHiddenConfig(arglist):
                     errmsg = "The argument name and value must be separated by an = sign -> '{}'\n".format(arg)
                     return (errmsg + cmdhelp)
                 propname,propval = arg.split('=')
-                property = FindHiddenConfigByName(propname)
+                property = FindHiddenConfigByName(CMHiddenSettings, propname)
                 if (not property):
                     errmsg = "No Hidden Config Property named {} was found\n".format((arg.split('='))[0])
                     return (errmsg + cmdhelp)
@@ -1428,6 +1559,7 @@ CMCommands = {
     'getpasscode': CMGetPasscode,
     'gethiddenconfig': CMGetHiddenConfig,
     'getlog': CMGetLog,
+    'parselog': CMParseLog,
     'setconfig': CMSetConfig,
     'getfru': CMGetFRU,
     'setfru': CMSetFRU,
@@ -1447,6 +1579,7 @@ CMCommandHelp = {
     'getpasscode': 'Gets the Passcode for Hidden Config Operations. Use -a help for arguments',
     'gethiddenconfig': 'Lists the Hidden Configuration Properties. Use -a help for arguments',
     'getlog': 'Lists the log entries from the CM EEPROM memory. Use -a help for arguments.',
+    'parselog': 'Parse a provided log file from an iDRAC TSR package (named CMLogs.log).',
     'setconfig': 'Set ONE CM Config property. Use -a help for arguments.',
     'getfru': 'Gets all the FRU data.',
     'setfru': 'Sets one FRU item. Use -a help for arguments.',
@@ -1479,6 +1612,11 @@ The GetLog command takes the following optional named arguments (with -a):
     -a offset=<int> - Start output <int> lines from the start of the log.
     -a tail=<int>   - Start output <int> lines from the end of the log.
     -a outfile=<filename> - Write to the filename specified.""",
+    'parselog': """
+The ParseLog command takes a single log file captured from an iDRAC TSR and converys the text Hex codes to readable log data.
+    -a logfile=<filename> - The log file from the TSR dump
+    -a outfile=<filename> - An optional output filename.  If not provided will dump to command prompt.
+    """,
     'setconfig': """
 The SetConfig command takes the following required named arguments (with -a):
     -a <propertyname>=<value> - set the given property by name to the value.  
