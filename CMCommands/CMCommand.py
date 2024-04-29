@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # Geoff Dillon geoff_dillon@dell.com
-# Copyright Dell, Inc 2023
+# Copyright Dell, Inc 2024
 # FOR INTERNAL USE ONLY.  DO NOT distribute to customers or partners/vendors.
 # This script automates certain IPMI raw commands to the C6400/C6600 CM through the iDRAC.
 # REQUIRES python 3.8 or higher
@@ -54,11 +54,23 @@ CMLogMaxLines = 999
 
 # used to identify supported Chassis
 CMBoardPN = {
-    'Hubble': ['0R8Y73', '0W3N19', '07NN9G'],
-    'Lake Austin': ['05V6V5'],
+    'Hubble': ['0N4PJW', '0FTNPN', '05FKHX', '0G70V8', '0R8Y73', '0X0F4W', '0W3N19', '05MJHC', '07NN9G'],
+    'Lake Austin': ['05V6V5','0HK9YG'],
+    'Hook': ['04XXFG', '0R4GKW'],
+    'Outlander': ['0CCFKV','0DMNPY'],
 }
+
+CMAllPlatNames = {
+    'Hubble': 'Hubble C6400',
+    'Lake Austin': 'Lake Austin C6600',
+    'Hook': 'Hook XR8000R',
+    'Outlander': 'Outlander XR4000R',
+}
+
 SptChassisHubble = 'Hubble'
 SptChassisLkAustin = 'Lake Austin'
+SptChassisHook = 'Hook'
+SptChassisOutldr = 'Outlander'
 
 
 PlainCmdResponseOffset = 3  # number of response header bytes for a 0x30 0x?? type command
@@ -209,96 +221,105 @@ class CMFRUSet:
             self.datatype = 'str'
     
  
-# Lake Austin (AMC) BP types
-LABPEnum = {
-    0: 'No Backplane (0)',
-    0x0025: '4x2.5 SAS/SATA Backplane (0x0025)',
-    0x0045: '4x2.5 NVME Backplane (0x0045)',
-    0x0185: '8xEDSFF NVME Backplane (0x0185)',
-    0x0385: 'Universal SATA/NVME Backplane (0x0385)',
-}
-
 # enumeration dictionaries used for displaying human-readable output
-enabdisab = {0: 'Disabled (0)', 1: 'Enabled (1)'}
 
-lockenum = {0: 'Unlocked (0)', 1: 'Locked (1)'}
-fanctlenum = {
-    0: 'Manual (0)',
-    1: 'Openloop (1)',
-    2: 'Closedloop (2)'
+# These may be used by all platforms to interpret GetConfig and GetVersion output
+AllConfigEnum = {
+    'lock': {0: 'Unlocked (0)', 1: 'Locked (1)'},
+    'enable': {0: 'Disabled (0)', 1: 'Enabled (1)'},
+    'redpsu': {0: '2+0 Nonredundant', 1: '1+1 Redundant'},
+    'reqpsu': {1: '1 PSU Required', 2: '2 PSUs Required'},
+    'bppres': {0: 'No Backplane (0)', 1: 'Backplane Present (1)'},
+    'sledcfg': {
+        0x0: 'Unknown',
+        0x1: 'FullWidth',
+        0x2: 'HalfWidth',
+        0x3: 'ThirdWidth',
+        0x4: 'DblHighHalf',
+        0x5: 'G5.5 Half',
+        0x6: 'G5.5 Full',
+    },
+    'fanctl': {
+        0: 'Manual (0)',
+        1: 'Openloop (1)',
+        2: 'Closedloop (2)',
+        3: 'Oil Immersion, NO Fans (3)',
+    },
+    'powercap': {
+        0: 'Disabled (0)', 
+        1: 'Static, Spread equal (1)', 
+        2: 'Reserved (2)', 
+        3: 'Reserved (3)', 
+        4: 'Reserved (4)', 
+        5: 'Static, SledPowerLimit (5)',
+    },
+    'fantypecfg': {
+        0x09: 'Nine-fans, 3 Zones (0x09)', # G5.5 only
+        0x13: 'Four-fans, 1 Zone (0x13)',  # Hubble only
+        0x14: 'Five-fans, 2 Zones (+1 for PSU) (0x14)', # AMC only
+        0x15: 'Four-fans, 2 Zones (0x15)',  # AMC only
+        0x18: 'Witness Fan (1 dual-rotor), 1 Zone (0x18)',  # outlander only
+        # hook has no chassis fans
+    },
+    'bptype': {
+        0: 'No Backplane (0)',
+        # Hubble
+        0x303D: '3x3.5 SAS/SATA Backplane (0x303D)',
+        0x303E: '6x2.5 SAS/SATA Backplane (0x303E)',
+        0x303B: '6x2.5 4xSAS/SATA +2x NVME/Universal Backplane (0x303B)',
+        0x303F: '6x2.5 2x2 NVME only Backplane (0x303F)',
+        # AMC
+        0x0025: '4x2.5 SAS/SATA Backplane (0x0025)',
+        0x0045: '4x2.5 NVME Backplane (0x0045)',
+        0x0185: '8xEDSFF NVME Backplane (0x0185)',
+        0x0385: 'Universal SATA/NVME Backplane (0x0385)',
+    },
+    # for 0x30 0x12 getversion list only
+    'sledconf': {'02': 'Half-width', '04': 'Double-high half-width'},
 }
 
-fanctlschemeenum = {
-    '00': 'FixedByUser',
-    '02': 'Emergency',
-    '04': 'Openloop',
-    '08': 'Closedloop',
-    '0b': 'Closed + Fixed',
-    '0c': 'Closed + Open',
-    
-}
-sledconfenum = {2: 'Half-width', 4: 'Double-high half-width'}
-redpsuenum = {0: '2+0 Nonredundant', 1: '1+1 Redundant'}
-powercapenum = {
-    0: 'Disabled (0)', 
-    1: 'Static, Spread equal (1)', 
-    2: 'Reserved (2)', 
-    3: 'Reserved (3)', 
-    4: 'Reserved (4)', 
-    5: 'Static, SledPowerLimit (5)'
-}
-
-fantypecfgenum = {
-    0x09: 'Nine-fans, 3 Zones (0x09)',
-    0x13: 'Four-fans, 1 Zone (0x13)',
-    0x14: 'Five-fans, 2 Zones (+1 for PSU) (0x14)',
-    0x15: 'Four-fans, 2 Zones (0x15)',
+#used to interpret GetSensorInfo response
+AllSensorEnum = {
+    'fwupdatestate': {
+        '00': "No Status. FW is OK",
+        '01': "FW Image Corrupted",
+        '02': "Fan Table image corrupted",
+        '03': "Firmware update failed",
+        '04': "Fan Table update failed",
+        '05': "CM FW Update in progress",
+        '06': "PSU FW Update in progress",
+        '07': "CM FW Downgrade blocked.",
+        '08': "PSU Update-Sleds are not powered off.",
+        'ff': "No update action",
+    },
+    'fanctlscheme': {
+        '00': 'FixedByUser',
+        '02': 'Emergency',
+        '04': 'Openloop',
+        '08': 'Closedloop',
+        '0b': 'Closed + Fixed',
+        '0c': 'Closed + Open',
+    },
 }
 
-bppresenum = {0: 'No Backplane (0)', 1: 'Backplane Present (1)'}
-
-reqpsusxenum = {1: '1 PSU Required', 2: '2 PSUs Required'}
-
-bpenum = {
-    0: 'No Backplane (0)',
-    0x303D: '3x3.5 SAS/SATA Backplane (0x303D)',
-    0x303E: '6x2.5 SAS/SATA Backplane (0x303E)',
-    0x303B: '6x2.5 4xSAS/SATA +2x NVME/Universal Backplane (0x303B)',
-    0x303F: '6x2.5 2x2 NVME only Backplane (0x303F)',
-}
-
-sledcfgenum = {
-    0x0: 'Unknown',
-    0x1: 'FullWidth',
-    0x2: 'HalfWidth',
-    0x3: 'ThirdWidth',
-    0x4: 'DblHighHalf',
-    0x5: 'G5.5 Half',
-    0x6: 'G5.5 Full',
-}
-hubblechassisenum = {
+# These are All Valid Chassis IDs for all platforms
+AllChassisEnum = {
     0x00: 'Not Set (0)',
+    #hubble
     0x1c: 'Mercury (0x1c)',
     0x56: 'Roadster (0x56)',
     0x57: 'Steeda (0x57)',
-}
-lkaustinchassisenum = {
-    0x00: 'Not Set (0)',
+    #amc
     0x65: 'Marine Creek (0x65)',
     0xC4: 'Buffalo Creek ((0xC4)',
-}
-
-fwupdatestateenum = {
-    '00': "No Status. FW is OK",
-    '01': "FW Image Corrupted",
-    '02': "Fan Table image corrupted",
-    '03': "Firmware update failed",
-    '04': "Fan Table update failed",
-    '05': "CM FW Update in progress",
-    '06': "PSU FW Update in progress",
-    '07': "CM FW Downgrade blocked.",
-    '08': "PSU Update-Sleds are not powered off.",
-    'ff': "No update action",
+    #hook
+    0xC1: 'Hook_R_1U (0xC1)',
+    0xC2: 'Hook_R_2U (0xC2)',
+    #outlander
+    0xA7: 'Outlander_HCC_R_1U (0xA7)',
+    0xA8: 'Outlander_HCC_N_1U (0xAD)',
+    0xAD: 'Outlander_HCC_R_2U (0xA8)',
+    0xAE: 'Outlander_HCC_N_2U (0xAE)',
 }
 
 # Definition structures for system value lookup
@@ -313,7 +334,7 @@ CMConfigInfo = {
     7: CMInfoSet("Rack ID", 7, 1, 'int'),
     8: CMInfoSet("Chassis ID", 8, 1, 'int'),
     9: CMInfoSet("Sled ID", 9, 1, 'int'),
-    10: CMInfoSet("Sled Conf", 10, 1, 'enum', sledcfgenum),
+    10: CMInfoSet("Sled Conf", 10, 1, 'enum', AllConfigEnum['sledconf']),
     11: CMInfoSet("LED Support", 11, 1, 'bit'),
     12: CMInfoSet("Temp Sensor Support", 12, 1, 'bit'),    
     13: CMInfoSet("Inlet Temp UNC Th", 13, 1, 'int'),
@@ -336,7 +357,7 @@ CMConfigInfo = {
 }
 
 CMSensorInfo = {
-    3: CMInfoSet("FW Update Status", 3, 1, 'enum', fwupdatestateenum),
+    3: CMInfoSet("FW Update Status", 3, 1, 'enum', AllSensorEnum['fwupdatestate']),
     4: CMInfoSet("Chassis Inlet Temp", 4, 1, 'signint'),
     5: CMInfoSet("Chassis Exhaust Temp", 5, 1, 'signint'),
     6: CMInfoSet("Sled Power Reading", 6, 2, 'int'),
@@ -356,7 +377,7 @@ CMSensorInfo = {
     29: CMInfoSet("Chass Fault LED Sts", 29, 1, 'int'), 
     30: CMInfoSet("PSU AC Loss", 30, 1, 'bit'), 
     31: CMInfoSet("Reserved", 31, 1, 'int'),
-    32: CMInfoSet("Fan Control Scheme", 32, 1, 'enum', fanctlschemeenum),
+    32: CMInfoSet("Fan Control Scheme", 32, 1, 'enum', AllSensorEnum['fanctlscheme']),
     # leave off the fan speeds for now
 }
 
@@ -406,14 +427,14 @@ CMValidHiddenConfigSettings = {
 }
 
 CMHubbleConfigSettings = {
-    1: CMConfigSet("LockInternalUseArea", 1, 1, lockenum, 0, True),
-    2: CMConfigSet("FanControlMode", 2, 1, fanctlenum, 2, True),
+    1: CMConfigSet("LockInternalUseArea", 1, 1, AllConfigEnum['lock'], 0, True),
+    2: CMConfigSet("FanControlMode", 2, 1, AllConfigEnum['fanctl'], 2, True),
     3: CMConfigSet("FanSpeedSetting", 3, 1, range(0,101), 80, True),
-    4: CMConfigSet("FanTypeConfig", 4, 1, fantypecfgenum, 0x13, False),
-    5: CMConfigSet("SledConfig", 5, 1, sledconfenum, 2, False),
+    4: CMConfigSet("FanTypeConfig", 4, 1, AllConfigEnum['fantypecfg'], 0x13, False),
+    5: CMConfigSet("SledConfig", 5, 1, AllConfigEnum['sledcfg'], 2, False),
     6: CMConfigSet("FanZones", 6, 1, {1: 'One zone (1)'}, 1, False),
-    7: CMConfigSet("RequiredPSUsX", 7, 1, reqpsusxenum, 2, False),
-    8: CMConfigSet("RedundantPSUsN", 8, 1, redpsuenum, 0, True),
+    7: CMConfigSet("RequiredPSUsX", 7, 1, AllConfigEnum['reqpsu'], 2, False),
+    8: CMConfigSet("RedundantPSUsN", 8, 1, AllConfigEnum['redpsu'], 0, True),
     9: CMConfigSet("MaxFanPwr", 9, 1, None, 100, False),  # only for Cosmos
     10: CMConfigSet("MaxHddChasPwr", 10, 1, None, 200, False),  # only for Cosmos
     11: CMConfigSet("MaxCmChasPower", 11, 1, None, 50, False),  # only for Cosmos
@@ -429,34 +450,73 @@ CMHubbleConfigSettings = {
     21: CMConfigSet("SledPowerLimit4", 21, 2, range(0,1001), 500, True),
     22: CMConfigSet("ChassisPowerLimit", 22, 2, range(0,4001), 2000, True),
     23: CMConfigSet("PowerCapActions", 23, 1, None, 0, False),  # not supported by iDrac
-    24: CMConfigSet("ChassisPowerCap", 24, 1, powercapenum, 0, True),
+    24: CMConfigSet("ChassisPowerCap", 24, 1, AllConfigEnum['powercap'], 0, True),
     25: CMConfigSet("ChassisServiceTag", 25, 8, None, "", True),
-    26: CMConfigSet("FTREnable", 26, 1, enabdisab, 1, True),
-    27: CMConfigSet("BpPresent", 27, 1, bppresenum, 0, True),
-    28: CMConfigSet("BpId", 28, 2, bpenum, 0x303F, True),
-    29: CMConfigSet("BVMSetting", 29, 1, enabdisab, 1, True),
+    26: CMConfigSet("FTREnable", 26, 1, AllConfigEnum['enable'], 1, True),
+    27: CMConfigSet("BpPresent", 27, 1, AllConfigEnum['bppres'], 0, True),
+    28: CMConfigSet("BpId", 28, 2, AllConfigEnum['bptype'], 0x303F, True),
+    29: CMConfigSet("BVMSetting", 29, 1, AllConfigEnum['enable'], 1, True),
     30: CMConfigSet("CableAmpLimit", 30, 1, range(0,20), 0, False),  # added in v3.23, made read-only in v3.30
 }
 
 CMLkAustinConfigSettings = CMHubbleConfigSettings.copy()
-CMLkAustinConfigSettings[4] = CMConfigSet("FanTypeConfig", 4, 1, fantypecfgenum, 0x14, False)
-CMLkAustinConfigSettings[9] = CMConfigSet("GridChassisICLEnable", 9, 1, enabdisab, 0, False)
+CMLkAustinConfigSettings[4] = CMConfigSet("FanTypeConfig", 4, 1, AllConfigEnum['fantypecfg'], 0x14, False)
+CMLkAustinConfigSettings[9] = CMConfigSet("GridChassisICLEnable", 9, 1, AllConfigEnum['enable'], 0, False)
 CMLkAustinConfigSettings[10] = CMConfigSet("ReserveByte2", 10, 1, None, 0, False)
 CMLkAustinConfigSettings[11] = CMConfigSet("ReserveByte3", 11, 1, None, 0, False)
 CMLkAustinConfigSettings[18] = CMConfigSet("GridICL", 18, 2, None, 0, False)
 CMLkAustinConfigSettings[19] = CMConfigSet("ChassisICL", 19, 2, None, 0, False)
 CMLkAustinConfigSettings[20] = CMConfigSet("ReservedWord3", 20, 2, None, 0, False)
 CMLkAustinConfigSettings[21] = CMConfigSet("ReservedWord4", 21, 2, None, 0, False)
-CMLkAustinConfigSettings[28] = CMConfigSet("BpId", 28, 2, LABPEnum, 0, True)
+CMLkAustinConfigSettings[28] = CMConfigSet("BpId", 28, 2, AllConfigEnum['bptype'], 0, True)
 CMLkAustinConfigSettings[30] = CMConfigSet("CableAmpLimit", 30, 1, range(0,20), 0, True)  # writable in AMC still
 
+CMHookConfigSettings = CMHubbleConfigSettings.copy()
+CMHookConfigSettings[2] = CMConfigSet("ReserveByte7", 2, 1, None, 0, False)
+CMHookConfigSettings[3] = CMConfigSet("ReserveByte8", 3, 1, None, 0, False)
+CMHookConfigSettings[4] = CMConfigSet("ReserveByte9", 4, 1, None, 0, False)
+CMHookConfigSettings[6] = CMConfigSet("ReserveByte10", 6, 1, None, 0, False)
+CMHookConfigSettings[9] = CMConfigSet("ReserveByte1", 9, 1, None, 0, False)
+CMHookConfigSettings[10] = CMConfigSet("ReserveByte2", 10, 1, None, 0, False)
+CMHookConfigSettings[11] = CMConfigSet("ReserveByte3", 11, 1, None, 0, False)
+CMHookConfigSettings[15] = CMConfigSet("ReserveByte13", 15, 1, None, 0, False)
+CMHookConfigSettings[16] = CMConfigSet("ReserveByte14", 16, 1, None, 0, False)
+CMHookConfigSettings[17] = CMConfigSet("ReserveByte15", 17, 1, None, 0, False)
+CMHookConfigSettings[18] = CMConfigSet("ReservedWord1", 18, 2, None, 0, False)
+CMHookConfigSettings[19] = CMConfigSet("ReservedWord2", 19, 2, None, 0, False)
+CMHookConfigSettings[20] = CMConfigSet("ReservedWord3", 20, 2, None, 0, False)
+CMHookConfigSettings[21] = CMConfigSet("ReservedWord4", 21, 2, None, 0, False)
+CMHookConfigSettings[27] = CMConfigSet("ReserveByte4", 27, 1, None, 0, False)
+CMHookConfigSettings[28] = CMConfigSet("ReservedWord5", 28, 2, None, 0, False)
+CMHookConfigSettings[29] = CMConfigSet("ReserveByte5", 29, 1, None, 0, False)
+CMHookConfigSettings[30] = CMConfigSet("ReserveByte6", 30, 1, None, 0, False)
+
+CMOutldrConfigSettings = CMHubbleConfigSettings.copy()
+CMOutldrConfigSettings[9] = CMConfigSet("ReserveByte1", 9, 1, None, 0, False)
+CMOutldrConfigSettings[10] = CMConfigSet("ReserveByte2", 10, 1, None, 0, False)
+CMOutldrConfigSettings[11] = CMConfigSet("ReserveByte3", 11, 1, None, 0, False)
+CMOutldrConfigSettings[18] = CMConfigSet("ReservedWord1", 18, 2, None, 0, False)
+CMOutldrConfigSettings[19] = CMConfigSet("ReservedWord2", 19, 2, None, 0, False)
+CMOutldrConfigSettings[20] = CMConfigSet("ReservedWord3", 20, 2, None, 0, False)
+CMOutldrConfigSettings[21] = CMConfigSet("ReservedWord4", 21, 2, None, 0, False)
+CMOutldrConfigSettings[28] = CMConfigSet("ReservedWord5", 28, 2, None, 0, False)
+CMOutldrConfigSettings[29] = CMConfigSet("ReserveByte5", 29, 1, None, 0, False)
+CMOutldrConfigSettings[30] = CMConfigSet("ReserveByte6", 30, 1, None, 0, False)
+
+
+CMAllConfigSettings = {
+    'Hubble': CMHubbleConfigSettings,
+    'Lake Austin': CMLkAustinConfigSettings,
+    'Hook': CMHookConfigSettings,
+    'Outlander' : CMOutldrConfigSettings,
+}
 
 CMHubbleFRUSettings = {
-    0x54: CMFRUSet('ChassisPartNumber', 0x54, 9, '0KJDD7X01'),
+    0x54: CMFRUSet('ChassisPartNumber', 0x54, 9, ''),
     0x5E: CMFRUSet('ChassisSerialNumber', 0x5E, 9, ''),
     0x77: CMFRUSet('ChassisBoardManufacturer', 0x77, 32, 'Dell'),
     0x98: CMFRUSet('ChassisBoardProductName', 0x98, 16, 'C6400 CM Board'),
-    0xAA: CMFRUSet('ChassisBoardPartNumber', 0xAA, 9, '07NN9GX01'),
+    0xAA: CMFRUSet('ChassisBoardPartNumber', 0xAA, 9, ''),
     0xB5: CMFRUSet('ChassisBoardSerialNumber', 0xB5, 23, ''),
     0xCD: CMFRUSet('ChassisFirstPowerOn', 0xCD, 8, ''),
     0xDC: CMFRUSet('ChassisManufacturer', 0xDC, 32, 'Dell'),
@@ -467,41 +527,38 @@ CMHubbleFRUSettings = {
     0x143: CMFRUSet('ChassisAssetTag', 0x143, 20, ''),
 }
 
-CMLkAustinFRUSettings = {
-    0x54: CMFRUSet('ChassisPartNumber', 0x54, 9, '0KJDD7X01'),
-    0x5E: CMFRUSet('ChassisSerialNumber', 0x5E, 9, ''),
-    0x77: CMFRUSet('ChassisBoardManufacturer', 0x77, 32, 'Dell'),
-    0x98: CMFRUSet('ChassisBoardProductName', 0x98, 16, 'C6600 CM Board'),
-    0xAA: CMFRUSet('ChassisBoardPartNumber', 0xAA, 9, '05V6V5X01'),
-    0xB5: CMFRUSet('ChassisBoardSerialNumber', 0xB5, 23, ''),
-    0xCD: CMFRUSet('ChassisFirstPowerOn', 0xCD, 8, ''),
-    0xDC: CMFRUSet('ChassisManufacturer', 0xDC, 32, 'Dell'),
-    0xFD: CMFRUSet('ChassisModel', 0xFD, 24, 'PowerEdge C6600'),
-    0x116: CMFRUSet('ChassisDescription', 0x116, 30, 'PH2671E-PWREDG,CE,C6600'),
-    0x135: CMFRUSet('ChassisProductVersion', 0x135, 3, 'A00'),
-    0x139: CMFRUSet('ChassisServiceTag', 0x139, 9, ''),
-    0x143: CMFRUSet('ChassisAssetTag', 0x143, 20, ''),
+CMLkAustinFRUSettings = CMHubbleFRUSettings.copy()
+CMLkAustinFRUSettings[0x98].default = 'C6600 CM Board'
+CMLkAustinFRUSettings[0xFD].default = 'PowerEdge C6600'
+CMLkAustinFRUSettings[0x116].default = 'PH2671E-PWREDG,CE,C6600'
+
+CMHookFRUSettings = CMHubbleFRUSettings.copy()
+# thee may not be accurate
+CMHookFRUSettings[0x98].default = 'XR8000R CM Board'
+CMHookFRUSettings[0xFD].default = 'PowerEdge XR8000R'
+CMHookFRUSettings[0x116].default = 'PH2096G-PWREDG,CE,XR8000R'
+
+CMOutldrFRUSettings = CMHubbleFRUSettings.copy()
+# These may not be accurate
+CMOutldrFRUSettings[0x98].default = 'XR4000R CM Board'
+CMOutldrFRUSettings[0xFD].default = 'PowerEdge XR4000R'
+CMOutldrFRUSettings[0x116].default = 'PH8364E-PWREDG,CE,XR4000R'
+
+CMAllFRUSettings = {
+    'Hubble': CMHubbleFRUSettings,
+    'Lake Austin': CMLkAustinFRUSettings,
+    'Hook': CMHookFRUSettings,
+    'Outlander': CMOutldrFRUSettings,
 }
 
-
-CMHubbleHiddenSettings = {
-    1: CMConfigSet('ChassisID', 1, 1, hubblechassisenum, 0x1C, True),
-    2: CMConfigSet('AllowFWDowngrade', 2, 1, enabdisab, 0, True),
+CMAllHiddenSettings = {
+    1: CMConfigSet('ChassisID', 1, 1, AllChassisEnum, 0, True),
+    2: CMConfigSet('AllowFWDowngrade', 2, 1, AllConfigEnum['enable'], 0, True),
     3: CMConfigSet('Connector_Max_Threshold', 3, 2, {}, 0, False),
-    4: CMConfigSet('GoldenChassis', 4, 1, enabdisab, 0, True),
-    5: CMConfigSet('Fixed_FTB', 5, 1, enabdisab, 0, True),
+    4: CMConfigSet('GoldenChassis', 4, 1, AllConfigEnum['enable'], 0, True),
+    5: CMConfigSet('Fixed_FTB', 5, 1, AllConfigEnum['enable'], 0, True),
     6: CMConfigSet('Manifest_Index_Number', 6, 1, None, 0, True),
 }
-
-CMLkAustinHiddenSettings = {
-    1: CMConfigSet('ChassisID', 1, 1, lkaustinchassisenum, 0x65, True),
-    2: CMConfigSet('AllowFWDowngrade', 2, 1, enabdisab, 0, True),
-    3: CMConfigSet('Connector_Max_Threshold', 3, 2, {}, 0, False),
-    4: CMConfigSet('GoldenChassis', 4, 1, enabdisab, 0, True),
-    5: CMConfigSet('Fixed_FTB', 5, 1, enabdisab, 0, True),
-    6: CMConfigSet('Manifest_Index_Number', 6, 1, None, 0, True),
-}
-
 
 # completion code lookup tables for select commands
 CMChasCfgCompCodes = {
@@ -517,7 +574,6 @@ CMConfigCompCodes = {
     '82': 'Invalid Static Key',
     '83': 'Invalid Passcode'
 }
-
 
 # search the list of Hidden Config Properties for the given name.
 def FindHiddenConfigByName(HiddenSettings, name):
@@ -663,6 +719,11 @@ def BoardPNAndRev():
         
     return boardpn.strip(), boardrev.strip()
 
+def GetSptChassisByPN(boardpn):
+    for platform in CMBoardPN.keys():
+        if (boardpn in CMBoardPN[platform]):
+            return platform
+    return ""
 
 def CMGetConfig(args, ini_output=False):
     # Get the FRU CM Board PN/Rev to determine the chassis type and HW level (UT/PT/ST)
@@ -672,19 +733,17 @@ def CMGetConfig(args, ini_output=False):
     boardpn, boardrev = BoardPNAndRev()
     platname = ""
     progressstring = "Getting Configuration Properties"
+    SptChassis = ""
     
     print(progressstring, end='\r')
     verbose("Chassis Board PN = {}, rev = {}".format(boardpn, boardrev))
-    if (boardpn in CMBoardPN[SptChassisHubble]):
-        CMConfigSettings = CMHubbleConfigSettings
-        platname = "Hubble C6400"
-        verbose("Using Hubble Config Settings")
-    elif (boardpn in CMBoardPN[SptChassisLkAustin]):
-        CMConfigSettings = CMLkAustinConfigSettings
-        platname = "Lake Austin C6600"
-        verbose("Using Lake Austin Config Settings")
-    else:
+    SptChassis = GetSptChassisByPN(boardpn)
+    if (SptChassis == ""):
         return "CM Board PN {} is not implemented.".format(boardpn)
+        
+    CMConfigSettings = CMAllConfigSettings[SptChassis]
+    platname = CMAllPlatNames[SptChassis]
+    verbose("Using " + SptChassis + " Config Settings")
 
     # get all the config items, don't care about the args
     stdout = call_ipmitool("{} 0xa0 0x0 0xff {}".format(config_preamble, ending))
@@ -841,16 +900,13 @@ def CMGetHiddenConfig(arglist):
     platname = ""
     
     verbose("Chassis Board PN = {}, rev = {}".format(boardpn, boardrev))
-    if (boardpn in CMBoardPN[SptChassisHubble]):
-        CMHiddenSettings = CMHubbleHiddenSettings
-        platname = "Hubble C6400"
-        verbose("Using Hubble Hidden Config Settings")
-    elif (boardpn in CMBoardPN[SptChassisLkAustin]):
-        CMHiddenSettings = CMLkAustinHiddenSettings
-        platname = "Lake Austin C6600"
-        verbose("Using Lake Austin Hiden Config Settings")
-    else:
+    SptChassis = GetSptChassisByPN(boardpn)
+    if (SptChassis == ""):
         return "CM Board PN {} is not implemented.".format(boardpn)
+        
+    CMHiddenSettings = CMAllHiddenSettings
+    platname = CMAllPlatNames[SptChassis]
+    verbose("Using " + SptChassis + " Hidden Config Settings")
     
     if (arglist and (len(arglist) > 0)):
         for arg in arglist:
@@ -1073,16 +1129,13 @@ def CMSetConfig(arglist):
     boardpn, boardrev = BoardPNAndRev()
     platname = ""
     verbose("Chassis Board PN = {}, rev = {}".format(boardpn, boardrev))
-    if (boardpn in CMBoardPN[SptChassisHubble]):
-        CMConfigSettings = CMHubbleConfigSettings
-        platname = "Hubble C6400"
-        verbose("Using Hubble Config Settings")
-    elif (boardpn in CMBoardPN[SptChassisLkAustin]):
-        CMConfigSettings = CMLkAustinConfigSettings
-        platname = "Lake Austin C6600"
-        verbose("Using Lake Austin Config Settings")
-    else:
+    SptChassis = GetSptChassisByPN(boardpn)
+    if (SptChassis == ""):
         return "CM Board PN {} is not implemented.".format(boardpn)
+        
+    CMConfigSettings = CMAllConfigSettings[SptChassis]
+    platname = CMAllPlatNames[SptChassis]
+    verbose("Using " + SptChassis + " Config Settings")
 
     if (arglist and (len(arglist) > 0)):
         for arg in arglist:
@@ -1152,18 +1205,16 @@ def CMGetFRU(args, ini_output = False):
     # Get the FRU CM Board PN/Rev to determine the chassis type and HW level (UT/PT/ST)
     boardpn, boardrev = BoardPNAndRev()
     platname = ""
+    SptChassis = ""
     
     verbose("Chassis Board PN = {}, rev = {}".format(boardpn, boardrev))
-    if (boardpn in CMBoardPN[SptChassisHubble]):
-        CMFRUSettings = CMHubbleFRUSettings
-        platname = "Hubble C6400"
-        verbose("Using Hubble Config Settings")
-    elif (boardpn in CMBoardPN[SptChassisLkAustin]):
-        CMFRUSettings = CMLkAustinFRUSettings
-        platname = "Lake Austin C6600"
-        verbose("Using Lake Austin Config Settings")
-    else:
+    SptChassis = GetSptChassisByPN(boardpn)
+    if (SptChassis == ""):
         return "CM Board PN {} is not implemented.".format(boardpn)
+        
+    CMFRUSettings = CMAllFRUSettings[SptChassis]
+    platname = CMAllPlatNames[SptChassis]
+    verbose("Using " + SptChassis + " FRU Settings")
     
     progressstring += '.'
     print(progressstring, end='\r')
@@ -1202,12 +1253,13 @@ def CMGetFRU(args, ini_output = False):
 
     return output    
 
+# Allows user to set a single FRU value by name
 def CMSetFRU(arglist):
     cmdhelp = CMCommandHelpDetailed['SetFRU'.lower()]
     property = None
     propval = None
     errmsg = ""
-    CMFRUSettings = CMAMCFRUSettings
+    CMFRUSettings = CMAllFRUSettings['Hubble']
     
     if (arglist and (len(arglist) > 0)):
         for arg in arglist:
@@ -1377,16 +1429,13 @@ def CMSetHiddenConfig(arglist):
     platname = ""
     
     verbose("Chassis Board PN = {}, rev = {}".format(boardpn, boardrev))
-    if (boardpn in CMBoardPN[SptChassisHubble]):
-        CMHiddenSettings = CMHubbleHiddenSettings
-        platname = "Hubble C6400"
-        verbose("Using Hubble Hidden Config Settings")
-    elif (boardpn in CMBoardPN[SptChassisLkAustin]):
-        CMHiddenSettings = CMLkAustinHiddenSettings
-        platname = "Lake Austin C6600"
-        verbose("Using Lake Austin Hiden Config Settings")
-    else:
+    SptChassis = GetSptChassisByPN(boardpn)
+    if (SptChassis == ""):
         return "CM Board PN {} is not implemented.".format(boardpn)
+        
+    CMHiddenSettings = CMAllHiddenSettings
+    platname = CMAllPlatNames[SptChassis]
+    verbose("Using " + SptChassis + " Hidden Config Settings")
 
     property = None
     propval = None
