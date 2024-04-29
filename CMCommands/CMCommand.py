@@ -1620,6 +1620,9 @@ CMCommands = {
     'help': CMCommandHelpFunc,
 }
 
+# these commands don't need IPMItool installed
+CMCommandsNoIMPI = ['parselog', 'help']
+
 CMCommandHelp = {
     'getversion': 'Gets the CM Config Info.',
     'getsensorinfo': "Gets the data from last Set Sensor Info, fan speeds not implemented yet.",
@@ -1773,18 +1776,21 @@ if __name__ == "__main__":
     if (sys.version_info.major < 3):
         print("This script requires Python version 3 or higher.  You are running {}.{}".format(sys.version_info.major, sys.version_info.minor))
         sys.exit(1)
-   
-    if (not check_ipmitool()):
-        print("You must install ipmitool on this system.")
-        sys.exit(1)
+
     if (not args.command):
         print("You must provide a command name")
         sys.exit(1)
-    
     if (args.raw_output):
         use_raw_output = True
     if (args.verbose):
         print_verbose = True
+   
+    if ((not args.command.lower() in CMCommandsNoIMPI) and not check_ipmitool()):
+        print("You must install ipmitool on this system to run this command.")
+        sys.exit(1)
+    else:
+        verbose("Skipping the ipmitool check since this command doesn't require it.")
+    
         
     verbose("wmi = {} host = {}  user = {}  password = {}  command = {}  args = {}".format(args.wmi, args.host, args.user, args.password, args.command, args.arg))
         
