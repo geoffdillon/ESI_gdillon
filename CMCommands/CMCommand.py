@@ -4,7 +4,7 @@
 # FOR INTERNAL USE ONLY.  DO NOT distribute to customers or partners/vendors.
 # This script automates certain IPMI raw commands to the C6400/C6600 CM through the iDRAC.
 # REQUIRES python 3.8 or higher
-# REQUIRES ipmitool
+# REQUIRES ipmitool in the system path
 
 """
 This is a convenience utility to compose IPMI raw commands to the C6400/C6600 Chassis Manager
@@ -1686,7 +1686,7 @@ settings that would be set back to defaults by a FRU reflash update.
     -a inifile=<ini file path> - the path to a target output ini file
     """,
     'reconfigure': """
-The Reconfigure command takes the name of an INI file as input and will apply the CM COnfig propery
+The Reconfigure command takes the name of an INI file as input and will apply the CM Config propery
 and FRU Settings values to the target system based on the file input to reset properties that 
 were erased by a CM update. 
     -a inifile=<ini file path>  The path to an INI input file.
