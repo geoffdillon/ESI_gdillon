@@ -311,7 +311,7 @@ AllChassisEnum = {
     0x57: 'Steeda (0x57)',
     #amc
     0x65: 'Marine Creek (0x65)',
-    0xC4: 'Buffalo Creek ((0xC4)',
+    0xC4: 'Buffalo Creek (0xC4)',
     #hook
     0xC1: 'Hook_R_1U (0xC1)',
     0xC2: 'Hook_R_2U (0xC2)',
