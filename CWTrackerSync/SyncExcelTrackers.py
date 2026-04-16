@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # Geoff Dillon geoff_dillon@dell.com
-# Copyright Dell, Inc 2024
+# Copyright Dell, Inc 2026
 # FOR INTERNAL USE ONLY.  DO NOT distribute to customers or partners/vendors.
 # Python3 script to compare Excel task trackers for Coreweave internal snd external management
 
@@ -62,6 +62,7 @@ intheads = {
     'PLATFORM':15,
     'INTEXT':16,
     'DESCRIPTION':17,
+    'ETA':18,
 }
 
 extheads = {
@@ -179,6 +180,9 @@ if __name__ == "__main__":
                     reporterror(f"INVALID PLATFORM: The issue at row {rowidx} with id {introw[intheads['ID']]} has a blank platform field.")
                 if (introw[intheads['DESCRIPTION']] == None):
                     reporterror(f"INVALID DESCRIPTION: The issue at row {rowidx} with id {introw[intheads['ID']]} has a blank description field.")
+            else: # closed
+                if (introw[intheads['CLOSEDATE']] == None):
+                    reporterror(f"INVALID CLOSEDATE: The issue at row {rowidx} with id {introw[intheads['ID']]} is closed and has a blank Close Date field.")
 
             anissue = Issue(id=introw[intheads['ID']],
                 row=rowidx,
@@ -198,8 +202,8 @@ if __name__ == "__main__":
                 nv_tkt=introw[intheads['NV_TKT']],
                 platform=introw[intheads['PLATFORM']],
                 intext=introw[intheads['INTEXT']],
-                eta=None,
                 description=introw[intheads['DESCRIPTION']],
+                eta=introw[intheads['ETA']],
                 ismatched=False                           
             )
             #verbose(anissue)
@@ -233,6 +237,11 @@ if __name__ == "__main__":
                     reporterror(f"INVALID PLATFORM: The issue at row {rowidx} with id {row[extheads['ID']]} has a blank platform field.")
                 if (row[extheads['DESCRIPTION']] == None):
                     reporterror(f"INVALID DESCRIPTION: The issue at row {rowidx} with id {row[extheads['ID']]} has a blank description field.")
+                if (row[extheads['ETA']] == None):
+                    reporterror(f"INVALID ETA: The issue at row {rowidx} with id {row[extheads['ID']]} has a blank ETA field.")
+            else: # closed
+                if (row[extheads['CLOSEDATE']] == None):
+                    reporterror(f"INVALID CLOSEDATE: The issue at row {rowidx} with id {row[extheads['ID']]} is closed and has a blank Close Date field.")
     
             anissue = Issue(id=row[extheads['ID']],
                 row=rowidx,
@@ -276,6 +285,8 @@ if __name__ == "__main__":
                 reporterror(f"TEMP MISMATCH: The id {issue.id} has different temperatures. internal = {in_issue.temperature} | external = {issue.temperature}.")
             if (check_descriptions and (in_issue.state == 'open') and (in_issue.description != issue.description)):
                 reporterror(f"DESC MISMATCH: The id {issue.id} has different descriptions. internal = {in_issue.description} | external = {issue.description}.")
+            if (issue.state == 'open' and in_issue.eta != issue.eta):
+                reporterror(f"ETA MISMATCH: The id {issue.id} has different ETAs. internal = {in_issue.eta} | external = {issue.eta}.")
     for in_issue in int_issues:
         if (in_issue.intext and (in_issue.intext.lower() != 'internal')):
             ext_issue = findissuebyID(ext_issues, in_issue.id)
